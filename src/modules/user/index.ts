@@ -33,7 +33,7 @@ export const user = new Elysia({ prefix: '/user' })
       const user = await UserService.createTestUser(body.email, body.name)
       return { user }
     } catch (error) {
-      return { error: 'Failed to create test user' }
+      return { error: `Failed to create test user ${error}` }
     }
   }, {
     body: t.Object({
