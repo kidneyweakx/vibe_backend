@@ -4,8 +4,9 @@ export interface CreateUserData {
   email: string
   name?: string
   avatar?: string
-  provider: 'google' | 'apple' | 'test'
+  provider: 'google' | 'apple' | 'password' | 'test'
   providerId: string
+  passwordHash?: string
 }
 
 export interface UpdateUserData {

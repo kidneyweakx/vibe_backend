@@ -11,10 +11,14 @@
     "@libsql/client": "^0.15.10",
     "@prisma/adapter-libsql": "^6.13.0",
     "@prisma/client": "^6.13.0",
+    "bcrypt": "^6.0.0",
     "elysia": "latest",
+    "jsonwebtoken": "^9.0.2",
     "prismabox": "^1.1.24"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "bun-types": "latest",
     "dotenv": "^17.2.1"
   },
