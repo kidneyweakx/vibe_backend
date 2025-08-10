@@ -31,8 +31,9 @@ export const auth = new Elysia({ prefix: '/auth' })
       })
       return authResponse
     } catch (error) {
-      set.status = 401
-      throw new Error(error instanceof Error ? error.message : 'Apple authentication failed')
+      set.status = 500
+      const message = error instanceof Error ? error.message : 'Apple authentication failed'
+      return { success: false, error: message, hint: 'Check TURSO_DATABASE_URL/TURSO_AUTH_TOKEN secrets and Apple idToken payload.' }
     }
   }, {
     body: t.Object({

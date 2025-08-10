@@ -2,7 +2,7 @@ import { get_config } from '../../config'
 import { R2UploadResult, UploadOptions, PhotoUploadResponse, PhotoListResponse, PhotoInfo } from './model'
 import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { handleR2Error, logError } from './errors'
-import { prisma } from '../../dbConfig'
+import getPrisma from '../../dbConfig'
 import { getR2Client } from './r2Client'
 import { getPublicObjectUrl, getPresignedGetUrl } from './presign'
 
@@ -116,7 +116,7 @@ export const uploadPhoto = async (imageData: string, userId: string, format: str
     
     // Check if user exists, allow guest users
     if (!userId.startsWith('guest_')) {
-      const user = await prisma.user.findUnique({
+      const user = await getPrisma().user.findUnique({
         where: { id: userId }
       })
       
@@ -146,7 +146,7 @@ export const uploadPhoto = async (imageData: string, userId: string, format: str
     // Save to database (create guest user if needed)
     if (userId.startsWith('guest_')) {
       // Ensure guest user exists in database
-      await prisma.user.upsert({
+      await getPrisma().user.upsert({
         where: { id: userId },
         update: {},
         create: {
@@ -159,7 +159,7 @@ export const uploadPhoto = async (imageData: string, userId: string, format: str
       })
     }
     
-    const photo = await prisma.photo.create({
+    const photo = await getPrisma().photo.create({
       data: {
         userId,
         key: uploadResult.key!,
@@ -189,13 +189,20 @@ export const getUserPhotos = async (userId: string, page: number = 1, limit: num
     const skip = (page - 1) * limit
     
     const [photos, totalCount] = await Promise.all([
-      prisma.photo.findMany({
+      getPrisma().photo.findMany({
         where: { userId },
+        include: {
+          photoTags: {
+            include: {
+              tag: true
+            }
+          }
+        },
         orderBy: { uploadedAt: 'desc' },
         skip,
         take: limit
       }),
-      prisma.photo.count({ where: { userId } })
+      getPrisma().photo.count({ where: { userId } })
     ])
     
     const photoInfos: PhotoInfo[] = await Promise.all(photos.map(async (photo) => ({
@@ -204,7 +211,8 @@ export const getUserPhotos = async (userId: string, page: number = 1, limit: num
       urls: {
         original: await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
       },
-      uploadedAt: photo.uploadedAt
+      uploadedAt: photo.uploadedAt,
+      tags: photo.photoTags.map(pt => pt.tag)
     })))
     
     return {
@@ -221,7 +229,7 @@ export const getUserPhotos = async (userId: string, page: number = 1, limit: num
 export const deletePhoto = async (photoId: string): Promise<{ success: boolean; error?: string }> => {
   try {
     // Get photo from database
-    const photo = await prisma.photo.findUnique({
+    const photo = await getPrisma().photo.findUnique({
       where: { id: photoId }
     })
     
@@ -237,7 +245,7 @@ export const deletePhoto = async (photoId: string): Promise<{ success: boolean; 
     }
     
     // Delete from database
-    await prisma.photo.delete({
+    await getPrisma().photo.delete({
       where: { id: photoId }
     })
     

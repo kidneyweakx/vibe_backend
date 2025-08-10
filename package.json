@@ -2,14 +2,23 @@
   "name": "vibe_backend",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun run scripts/run-tests.ts all",
+    "test:watch": "bun run scripts/run-tests.ts all --watch",
+    "test:coverage": "bun run scripts/run-tests.ts all --coverage",
+    "test:unit": "bun run scripts/run-tests.ts unit",
+    "test:api": "bun run scripts/run-tests.ts api",
+    "test:integration": "bun run scripts/run-tests.ts integration",
+    "test:tag": "bun run scripts/run-tests.ts tag",
+    "test:photo": "bun run scripts/run-tests.ts photo",
     "dev": "bun run --watch src/server.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production",
     "wrangler:dev": "wrangler dev",
     "wrangler:tail": "wrangler tail",
-    "cleanup:r2dev": "bun run scripts/cleanup-r2dev.ts"
+    "cleanup:r2dev": "bun run scripts/cleanup-r2dev.ts",
+    "init-tags": "bun run scripts/init-tags.ts",
+    "test-tags": "bun run scripts/test-tags.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",

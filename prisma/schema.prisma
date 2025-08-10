@@ -37,6 +37,7 @@ model Photo {
   uploadedAt DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ratings    Rating[]
+  photoTags  PhotoTag[]
 
   @@map("photos")
 }
@@ -55,4 +56,28 @@ model Rating {
 
   @@unique([raterId, photoId]) // 每個人對每張照片只能評分一次
   @@map("ratings")
+}
+
+model Tag {
+  id          String     @id @default(cuid())
+  name        String     @unique // 標籤名稱 (英文)
+  displayName String     // 顯示名稱 (中文)
+  emoji       String?    // 可選的 emoji 圖示
+  color       String?    // 標籤顏色 (hex code)
+  category    String?    // 標籤分類 (如: style, occasion, season)
+  createdAt   DateTime   @default(now())
+  photoTags   PhotoTag[]
+
+  @@map("tags")
+}
+
+model PhotoTag {
+  id      String @id @default(cuid())
+  photoId String
+  tagId   String
+  photo   Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, tagId]) // 每張照片對每個標籤只能關聯一次
+  @@map("photo_tags")
 }

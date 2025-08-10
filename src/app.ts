@@ -3,6 +3,7 @@ import { fileModule } from "./modules/file";
 import { user } from "./modules/user";
 import { auth } from "./modules/auth";
 import { rateModule } from "./modules/rate";
+import { tagModule } from "./modules/tag";
 import { accessTokenMiddleware } from "./middleware/accessToken";
 
 export const app = new Elysia({ aot: false })
@@ -13,6 +14,7 @@ export const app = new Elysia({ aot: false })
       .use(user)
       .use(auth)
       .use(rateModule)
+      .use(tagModule)
   );
 
 export default app;

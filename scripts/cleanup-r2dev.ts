@@ -1,9 +1,9 @@
-import prisma from "../src/dbConfig";
+import getPrisma from "../src/dbConfig";
 
 async function main() {
   const target = 'r2.dev';
 
-  const before = await prisma.photo.count({ where: { url: { contains: target } } });
+  const before = await getPrisma().photo.count({ where: { url: { contains: target } } });
   console.log(`Photos with url containing '${target}': ${before}`);
 
   if (before === 0) {
@@ -11,10 +11,10 @@ async function main() {
     return;
   }
 
-  const deleted = await prisma.photo.deleteMany({ where: { url: { contains: target } } });
+  const deleted = await getPrisma().photo.deleteMany({ where: { url: { contains: target } } });
   console.log(`Deleted photos: ${deleted.count}`);
 
-  const after = await prisma.photo.count({ where: { url: { contains: target } } });
+  const after = await getPrisma().photo.count({ where: { url: { contains: target } } });
   console.log(`Remaining matching photos: ${after}`);
 }
 
@@ -24,7 +24,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await getPrisma().$disconnect();
   });
 
 

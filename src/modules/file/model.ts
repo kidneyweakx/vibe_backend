@@ -28,6 +28,16 @@ export interface PhotoInfo {
   userId: string
   urls: PhotoURLs
   uploadedAt: Date
+  tags?: Tag[]
+}
+
+export interface Tag {
+  id: string
+  name: string
+  displayName: string
+  emoji?: string
+  color?: string
+  category?: string
 }
 
 export interface PhotoURLs {

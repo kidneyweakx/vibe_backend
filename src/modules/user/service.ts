@@ -1,4 +1,4 @@
-import { prisma } from '../../dbConfig'
+import getPrisma from '../../dbConfig'
 
 export interface CreateUserData {
   email: string
@@ -16,7 +16,7 @@ export interface UpdateUserData {
 
 export class UserService {
   static async upsertUser(data: CreateUserData) {
-    return await prisma.user.upsert({
+    return await getPrisma().user.upsert({
       where: {
         provider_providerId: {
           provider: data.provider,
@@ -34,19 +34,19 @@ export class UserService {
   }
 
   static async getUserById(id: string) {
-    return await prisma.user.findUnique({
+    return await getPrisma().user.findUnique({
       where: { id }
     })
   }
 
   static async getUserByEmail(email: string) {
-    return await prisma.user.findUnique({
+    return await getPrisma().user.findUnique({
       where: { email }
     })
   }
 
   static async getUserByProvider(provider: string, providerId: string) {
-    return await prisma.user.findUnique({
+    return await getPrisma().user.findUnique({
       where: {
         provider_providerId: {
           provider,
@@ -57,7 +57,7 @@ export class UserService {
   }
 
   static async updateUser(id: string, data: UpdateUserData) {
-    return await prisma.user.update({
+    return await getPrisma().user.update({
       where: { id },
       data: {
         ...data,
@@ -67,7 +67,7 @@ export class UserService {
   }
 
   static async deleteUser(id: string) {
-    return await prisma.user.delete({
+    return await getPrisma().user.delete({
       where: { id }
     })
   }
@@ -84,7 +84,7 @@ export class UserService {
   static async getUserPublicInfo(userId: string) {
     try {
       // 獲取用戶基本信息
-      const user = await prisma.user.findUnique({
+      const user = await getPrisma().user.findUnique({
         where: { id: userId },
         select: {
           id: true,
@@ -100,16 +100,16 @@ export class UserService {
       }
 
       // 獲取用戶照片數量
-      const photoCount = await prisma.photo.count({
+      const photoCount = await getPrisma().photo.count({
         where: { userId }
       })
 
       // 獲取評分統計
-      const likeCount = await prisma.rating.count({
+      const likeCount = await getPrisma().rating.count({
         where: { ratedUserId: userId, type: 'like' }
       })
       
-      const normalCount = await prisma.rating.count({
+      const normalCount = await getPrisma().rating.count({
         where: { ratedUserId: userId, type: 'normal' }
       })
       
@@ -121,7 +121,7 @@ export class UserService {
         : 0
 
       // 獲取最新的幾張照片
-      const recentPhotos = await prisma.photo.findMany({
+      const recentPhotos = await getPrisma().photo.findMany({
         where: { userId },
         select: {
           id: true,

@@ -1,4 +1,4 @@
-import { prisma } from '../../dbConfig'
+import getPrisma from '../../dbConfig'
 import { RatePhotoResponse, UserRankingResponse, RankingListResponse, UserStatsResponse } from './model'
 
 // 計算總分：(❤️票數 × 1 + 🔄票數 × 0.2) ÷ 總票數 × 100
@@ -18,7 +18,7 @@ export const ratePhoto = async (raterId: string, photoId: string, type: 'like' |
     }
 
     // 獲取照片信息
-    const photo = await prisma.photo.findUnique({
+    const photo = await getPrisma().photo.findUnique({
       where: { id: photoId },
       include: { user: true }
     })
@@ -33,7 +33,7 @@ export const ratePhoto = async (raterId: string, photoId: string, type: 'like' |
     }
 
     // 創建或更新評分
-    const rating = await prisma.rating.upsert({
+    const rating = await getPrisma().rating.upsert({
       where: {
         raterId_photoId: {
           raterId,
@@ -67,7 +67,7 @@ export const ratePhoto = async (raterId: string, photoId: string, type: 'like' |
 export const getUserStats = async (userId: string): Promise<UserStatsResponse> => {
   try {
     // 獲取用戶基本信息
-    const user = await prisma.user.findUnique({
+    const user = await getPrisma().user.findUnique({
       where: { id: userId }
     })
 
@@ -76,11 +76,11 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     }
 
     // 計算各類評分數量
-    const likeCount = await prisma.rating.count({
+    const likeCount = await getPrisma().rating.count({
       where: { ratedUserId: userId, type: 'like' }
     })
     
-    const normalCount = await prisma.rating.count({
+    const normalCount = await getPrisma().rating.count({
       where: { ratedUserId: userId, type: 'normal' }
     })
     
@@ -88,7 +88,7 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     const totalScore = calculateTotalScore(likeCount, normalCount)
 
     // 獲取所有用戶的分數來計算排名
-    const allUserStats = await prisma.rating.groupBy({
+    const allUserStats = await getPrisma().rating.groupBy({
       by: ['ratedUserId'],
       where: {
         type: { in: ['like', 'normal'] }
@@ -101,10 +101,10 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     // 計算每個用戶的分數
     const userScores = await Promise.all(
       allUserStats.map(async (stat) => {
-        const userLikes = await prisma.rating.count({
+        const userLikes = await getPrisma().rating.count({
           where: { ratedUserId: stat.ratedUserId, type: 'like' }
         })
-        const userNormals = await prisma.rating.count({
+        const userNormals = await getPrisma().rating.count({
           where: { ratedUserId: stat.ratedUserId, type: 'normal' }
         })
         
@@ -122,7 +122,7 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     // 獲取性別排名（如果有性別信息）
     let genderRank: number | undefined
     if (user.gender) {
-      const sameGenderUsers = await prisma.user.findMany({
+      const sameGenderUsers = await getPrisma().user.findMany({
         where: { gender: user.gender },
         select: { id: true }
       })
@@ -136,7 +136,7 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     }
 
     // 獲取最近的評分
-    const recentRatings = await prisma.rating.findMany({
+    const recentRatings = await getPrisma().rating.findMany({
       where: { ratedUserId: userId },
       include: {
         photo: true
@@ -168,7 +168,7 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
 export const getRankingList = async (limit: number = 50): Promise<RankingListResponse> => {
   try {
     // 獲取所有有評分的用戶
-    const allUserStats = await prisma.rating.groupBy({
+    const allUserStats = await getPrisma().rating.groupBy({
       by: ['ratedUserId'],
       where: {
         type: { in: ['like', 'normal'] }
@@ -181,14 +181,14 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
     // 計算每個用戶的分數和詳細信息
     const userScores = await Promise.all(
       allUserStats.map(async (stat) => {
-        const user = await prisma.user.findUnique({
+        const user = await getPrisma().user.findUnique({
           where: { id: stat.ratedUserId }
         })
         
-        const likeCount = await prisma.rating.count({
+        const likeCount = await getPrisma().rating.count({
           where: { ratedUserId: stat.ratedUserId, type: 'like' }
         })
-        const normalCount = await prisma.rating.count({
+        const normalCount = await getPrisma().rating.count({
           where: { ratedUserId: stat.ratedUserId, type: 'normal' }
         })
         
@@ -233,7 +233,7 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
       }))
 
     // 獲取總用戶數
-    const totalUsers = await prisma.user.count()
+    const totalUsers = await getPrisma().user.count()
 
     return {
       overall: overallUsers,
@@ -249,7 +249,7 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
 export const getRandomPhotosForRating = async (userId: string, limit: number = 10) => {
   try {
     // 獲取用戶還沒評分過的照片，排除自己的照片
-    const photos = await prisma.photo.findMany({
+    const photos = await getPrisma().photo.findMany({
       where: {
         AND: [
           { userId: { not: userId } }, // 不是自己的照片
