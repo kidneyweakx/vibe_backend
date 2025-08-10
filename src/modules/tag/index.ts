@@ -1,10 +1,11 @@
 import { Elysia, t } from 'elysia'
 import { TagService } from './service'
 import { requireAuth } from '../auth/middleware'
-import { prisma } from '../../dbConfig'
+import getPrisma from '../../dbConfig'
 
 export const tagModule = new Elysia({ prefix: '/tags' })
-  .decorate('tagService', new TagService(prisma))
+  // Lazily create TagService per request to avoid env access at module load
+  .derive(() => ({ tagService: new TagService(getPrisma()) }))
   
   // 獲取所有標籤
   .get('/', async ({ tagService, query }) => {
@@ -57,7 +58,7 @@ export const tagModule = new Elysia({ prefix: '/tags' })
   .post('/photos/:photoId', async ({ tagService, params, body, user, set }) => {
     try {
       // 驗證照片是否屬於當前用戶
-      const photo = await prisma.photo.findFirst({
+      const photo = await getPrisma().photo.findFirst({
         where: {
           id: params.photoId,
           userId: user.id

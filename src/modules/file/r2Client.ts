@@ -1,13 +1,11 @@
 import { S3Client } from '@aws-sdk/client-s3'
-import { get_config } from '../../config'
 import { getEnvVar } from '../../env'
 
 export const getR2Client = () => {
-  const config = get_config()
-  const accountId = getEnvVar('R2_ACCOUNT_ID') || config.R2_ACCOUNT_ID
-  const bucketName = getEnvVar('R2_BUCKET_NAME') || config.R2_BUCKET_NAME
-  const accessKey = getEnvVar('R2_ACCESS_KEY') || config.R2_ACCESS_KEY
-  const secretKey = getEnvVar('R2_SECRET_KEY') || config.R2_SECRET_KEY
+  const accountId = getEnvVar('R2_ACCOUNT_ID')
+  const bucketName = getEnvVar('R2_BUCKET_NAME')
+  const accessKey = getEnvVar('R2_ACCESS_KEY')
+  const secretKey = getEnvVar('R2_SECRET_KEY')
 
   const requiredFields = {
     R2_ACCESS_KEY: accessKey,

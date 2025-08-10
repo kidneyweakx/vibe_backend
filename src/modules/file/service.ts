@@ -1,4 +1,3 @@
-import { get_config } from '../../config'
 import { R2UploadResult, UploadOptions, PhotoUploadResponse, PhotoListResponse, PhotoInfo } from './model'
 import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { handleR2Error, logError } from './errors'
