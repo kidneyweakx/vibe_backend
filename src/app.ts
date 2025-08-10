@@ -1,0 +1,19 @@
+import { Elysia } from "elysia";
+import { fileModule } from "./modules/file";
+import { user } from "./modules/user";
+import { auth } from "./modules/auth";
+import { rateModule } from "./modules/rate";
+import { accessTokenMiddleware } from "./middleware/accessToken";
+
+export const app = new Elysia({ aot: false })
+  .group("/api", (grouped) =>
+    grouped
+      .use(accessTokenMiddleware)
+      .use(fileModule)
+      .use(user)
+      .use(auth)
+      .use(rateModule)
+  );
+
+export default app;
+

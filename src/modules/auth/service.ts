@@ -1,6 +1,6 @@
 import { UserService } from '../user/service'
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcrypt'
+import * as jose from 'jose'
+import bcrypt from 'bcryptjs'
 
 export interface GoogleTokenPayload {
   sub: string // Google user ID
@@ -38,15 +38,32 @@ export interface AppleSignInData {
 
 export class AuthService {
   private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
-  private static readonly JWT_EXPIRES_IN = '7d'
+  private static readonly JWT_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7 // 7d
 
   static generateJWT(userId: string): string {
-    return jwt.sign({ userId }, this.JWT_SECRET, { expiresIn: this.JWT_EXPIRES_IN })
+    // jose produces Uint8Array key; we return compact JWS string synchronously is not supported.
+    // Provide a synchronous wrapper by using a precomputed key and a blocking wait is not possible; make async instead.
+    // To preserve API, we use a small synchronous fallback via atob which is not possible either.
+    // Change API to async and update callers accordingly.
+    throw new Error('generateJWT should not be called synchronously. Use generateJWTAsync instead.')
   }
 
-  static verifyJWT(token: string): { userId: string } | null {
+  static async generateJWTAsync(userId: string): Promise<string> {
+    const secret = new TextEncoder().encode(this.JWT_SECRET)
+    const alg = 'HS256'
+    const jwt = await new jose.SignJWT({ userId })
+      .setProtectedHeader({ alg })
+      .setIssuedAt()
+      .setExpirationTime(this.JWT_EXPIRES_IN_SECONDS)
+      .sign(secret)
+    return jwt
+  }
+
+  static async verifyJWTAsync(token: string): Promise<{ userId: string } | null> {
     try {
-      return jwt.verify(token, this.JWT_SECRET) as { userId: string }
+      const secret = new TextEncoder().encode(this.JWT_SECRET)
+      const { payload } = await jose.jwtVerify(token, secret)
+      return { userId: String(payload.userId) }
     } catch {
       return null
     }
@@ -81,8 +98,13 @@ export class AuthService {
 
   static async verifyAppleToken(data: AppleSignInData): Promise<AppleTokenPayload | null> {
     try {
-      // Basic JWT decode - in production, you should verify the signature
-      const payload = JSON.parse(atob(data.idToken.split('.')[1]))
+      // Basic JWT decode for base64url (no signature verify here)
+      const [, payloadB64Url] = data.idToken.split('.')
+      const padded = payloadB64Url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payloadB64Url.length / 4) * 4, '=')
+      const binary = atob(padded)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const payload = JSON.parse(new TextDecoder().decode(bytes))
       
       if (!payload.sub) {
         return null
@@ -130,7 +152,7 @@ export class AuthService {
       providerId: payload.sub
     })
 
-    const token = this.generateJWT(user.id)
+    const token = await this.generateJWTAsync(user.id)
 
     return {
       user: {
@@ -157,7 +179,7 @@ export class AuthService {
       providerId: payload.sub
     })
 
-    const token = this.generateJWT(user.id)
+    const token = await this.generateJWTAsync(user.id)
 
     return {
       user: {
@@ -184,7 +206,7 @@ export class AuthService {
       throw new Error('Invalid credentials')
     }
 
-    const token = this.generateJWT(user.id)
+    const token = await this.generateJWTAsync(user.id)
 
     return {
       user: {
@@ -214,7 +236,7 @@ export class AuthService {
       passwordHash
     })
 
-    const token = this.generateJWT(user.id)
+    const token = await this.generateJWTAsync(user.id)
 
     return {
       user: {
@@ -228,12 +250,8 @@ export class AuthService {
   }
 
   static async getUserFromToken(token: string) {
-    const decoded = this.verifyJWT(token)
-    
-    if (!decoded) {
-      return null
-    }
-
+    const decoded = await this.verifyJWTAsync(token)
+    if (!decoded) return null
     return UserService.getUserById(decoded.userId)
   }
 }

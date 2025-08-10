@@ -21,6 +21,7 @@ export const auth = new Elysia({ prefix: '/auth' })
   // Apple Authentication - matches Swift client expectations
   .post('/apple/verify', async ({ body, set }) => {
     try {
+      console.log('auth apple')
       const authResponse = await AuthService.signInWithApple({
         idToken: body.idToken,
         nonce: body.nonce,

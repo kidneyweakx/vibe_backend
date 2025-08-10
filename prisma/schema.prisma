@@ -13,12 +13,46 @@ model User {
   email        String   @unique
   name         String?
   avatar       String?
+  gender       String?  // "male" | "female" | "other"
   provider     String   // "google" | "apple" | "password" | "test"
   providerId   String   // OAuth provider user ID or email for password auth
   passwordHash String?  // For password authentication
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  photos       Photo[]
+  givenRatings Rating[] @relation("RaterUser")
+  receivedRatings Rating[] @relation("RatedUser")
 
   @@unique([provider, providerId])
   @@map("users")
+}
+
+model Photo {
+  id         String   @id @default(cuid())
+  userId     String
+  key        String   @unique // R2 storage key
+  url        String   // Public URL
+  format     String   // image format (png, jpg, etc.)
+  size       Int      // file size in bytes
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ratings    Rating[]
+
+  @@map("photos")
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  raterId   String   // 評分者
+  ratedUserId String // 被評分者
+  photoId   String   // 被評分的照片
+  type      String   // "like" (❤️) or "normal" (🔄)
+  createdAt DateTime @default(now())
+  
+  rater     User     @relation("RaterUser", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade)
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([raterId, photoId]) // 每個人對每張照片只能評分一次
+  @@map("ratings")
 }
