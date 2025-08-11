@@ -33,6 +33,26 @@ export const ratePhoto = async (raterId: string, photoId: string, type: 'like' |
       throw new Error('Cannot rate your own photo')
     }
 
+    // 確保評分者存在（支援 guest 使用者自動建立）
+    if (raterId.startsWith('guest_')) {
+      await getPrisma().user.upsert({
+        where: { id: raterId },
+        update: {},
+        create: {
+          id: raterId,
+          email: `${raterId}@guest.local`,
+          name: 'Guest User',
+          provider: 'guest',
+          providerId: raterId
+        }
+      })
+    } else {
+      const rater = await getPrisma().user.findUnique({ where: { id: raterId } })
+      if (!rater) {
+        throw new Error('Rater user not found')
+      }
+    }
+
     // 創建或更新評分
     const rating = await getPrisma().rating.upsert({
       where: {
@@ -198,8 +218,8 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
         return {
           userId: stat.ratedUserId,
           name: user?.name || 'Unknown',
-          avatar: user?.avatar,
-          gender: user?.gender,
+          avatar: user?.avatar ?? undefined,
+          gender: user?.gender ?? undefined,
           totalScore: calculateTotalScore(likeCount, normalCount),
           likeCount,
           normalCount,
@@ -251,15 +271,15 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
 
 export const getRandomPhotosForRating = async (userId: string, limit: number = 10) => {
   try {
-    // 獲取用戶還沒評分過的照片，排除自己的照片
-    const photos = await getPrisma().photo.findMany({
+    // 取每位其他用戶的「最新上傳照片」，且該照片尚未被當前用戶評分
+    const latestPerUser = await getPrisma().photo.findMany({
       where: {
         AND: [
-          { userId: { not: userId } }, // 不是自己的照片
+          { userId: { not: userId } },
           {
             ratings: {
               none: {
-                raterId: userId // 還沒評分過
+                raterId: userId
               }
             }
           }
@@ -267,26 +287,26 @@ export const getRandomPhotosForRating = async (userId: string, limit: number = 1
       },
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            gender: true
-          }
+          select: { id: true, name: true, gender: true }
         }
       },
-      take: limit * 2 // 取更多然後隨機選擇
+      orderBy: { uploadedAt: 'desc' },
+      distinct: ['userId'],
+      take: limit * 3 // 多拿一些再隨機
     })
 
-    // 隨機排序並取指定數量，並將 URL 轉為 presigned URL
-    const shuffled = photos.sort(() => 0.5 - Math.random())
+    // 隨機取前 limit 張
+    const shuffled = latestPerUser.sort(() => 0.5 - Math.random())
     const selected = shuffled.slice(0, limit)
-    const presigned = await Promise.all(
+
+    const withSignedUrl = await Promise.all(
       selected.map(async (photo) => ({
         ...photo,
-        url: await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7) // 7 天有效
+        url: await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
       }))
     )
-    return presigned
+
+    return withSignedUrl
   } catch (error: any) {
     throw error
   }

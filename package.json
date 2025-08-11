@@ -18,7 +18,9 @@
     "wrangler:tail": "wrangler tail",
     "cleanup:r2dev": "bun run scripts/cleanup-r2dev.ts",
     "init-tags": "bun run scripts/init-tags.ts",
-    "test-tags": "bun run scripts/test-tags.ts"
+    "init-tags:en": "bun run scripts/init-tags-en.ts",
+    "test-tags": "bun run scripts/test-tags.ts",
+    "fake:import": "bun run fake-data/import.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",
@@ -30,7 +32,8 @@
     "bcryptjs": "^2.4.3",
     "elysia": "latest",
     "jose": "^5.9.6",
-    "prismabox": "^1.1.24"
+    "prismabox": "^1.1.24",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

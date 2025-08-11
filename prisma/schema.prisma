@@ -81,3 +81,19 @@ model PhotoTag {
   @@unique([photoId, tagId]) // 每張照片對每個標籤只能關聯一次
   @@map("photo_tags")
 }
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  key         String   @unique // R2 storage key
+  url         String   // Public URL
+  format      String   // image format (webp preferred)
+  size        Int      // file size in bytes
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("events")
+}

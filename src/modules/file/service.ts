@@ -183,6 +183,71 @@ export const uploadPhoto = async (imageData: string, userId: string, format: str
   }
 }
 
+export const generatePhotoKey = (userId: string, format: string = 'png'): string => {
+  return `photos/${userId}/${Date.now()}.${format}`
+}
+
+export const confirmPhotoUpload = async (
+  params: { userId: string; key: string; format?: string; size?: number }
+): Promise<PhotoUploadResponse> => {
+  const { userId, key, format = (key.split('.').pop() || 'png'), size } = params
+  try {
+    // Verify object exists (best-effort)
+    try {
+      const { client, bucketName } = getR2Client()
+      const head = new HeadObjectCommand({ Bucket: bucketName, Key: key })
+      await client.send(head)
+    } catch (e) {
+      // Continue even if HEAD fails; client may have eventual consistency
+    }
+
+    // Ensure user exists or create guest
+    if (userId.startsWith('guest_')) {
+      await getPrisma().user.upsert({
+        where: { id: userId },
+        update: {},
+        create: {
+          id: userId,
+          email: `${userId}@guest.local`,
+          name: 'Guest User',
+          provider: 'guest',
+          providerId: userId
+        }
+      })
+    } else {
+      const user = await getPrisma().user.findUnique({ where: { id: userId } })
+      if (!user) {
+        throw new Error(`User with ID ${userId} not found`)
+      }
+    }
+
+    const publicUrl = getPublicObjectUrl(key)
+
+    const photo = await getPrisma().photo.create({
+      data: {
+        userId,
+        key,
+        url: publicUrl,
+        format,
+        size: size || 0
+      }
+    })
+
+    const signedUrl = await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
+    return {
+      photoId: photo.id,
+      urls: {
+        original: signedUrl
+      },
+      uploadedAt: photo.uploadedAt
+    }
+  } catch (error: any) {
+    console.error('Confirm photo upload error:', error)
+    logError('Confirm photo upload', key, error)
+    throw error
+  }
+}
+
 export const getUserPhotos = async (userId: string, page: number = 1, limit: number = 20): Promise<PhotoListResponse> => {
   try {
     const skip = (page - 1) * limit
@@ -211,7 +276,14 @@ export const getUserPhotos = async (userId: string, page: number = 1, limit: num
         original: await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
       },
       uploadedAt: photo.uploadedAt,
-      tags: photo.photoTags.map(pt => pt.tag)
+      tags: photo.photoTags.map((pt) => ({
+        id: pt.tag.id,
+        name: pt.tag.name,
+        displayName: pt.tag.displayName,
+        emoji: pt.tag.emoji ?? undefined,
+        color: pt.tag.color ?? undefined,
+        category: pt.tag.category ?? undefined
+      }))
     })))
     
     return {
