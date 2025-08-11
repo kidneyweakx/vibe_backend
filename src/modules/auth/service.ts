@@ -1,4 +1,5 @@
 import { UserService } from '../user/service'
+import { getEnvVar } from '../../env'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
 
@@ -39,6 +40,41 @@ export interface AppleSignInData {
 export class AuthService {
   private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
   private static readonly JWT_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7 // 7d
+
+  // Narrow-scope diagnostics to make Prisma/libsql config issues obvious in auth flows
+  private static sanitizeDbUrlHost(urlLike: string | undefined): string {
+    if (!urlLike) return 'missing'
+    try {
+      const normalized = urlLike.replace(/^libsql:\/\//i, 'https://')
+      const u = new URL(normalized)
+      return `present(${u.host})`
+    } catch {
+      return 'present'
+    }
+  }
+
+  private static describeDbConfigIssue(): string {
+    const dbUrl = getEnvVar('TURSO_DATABASE_URL')
+    const dbToken = getEnvVar('TURSO_AUTH_TOKEN')
+    const missing: string[] = []
+    if (!dbUrl) missing.push('TURSO_DATABASE_URL')
+    if (!dbToken) missing.push('TURSO_AUTH_TOKEN')
+    if (missing.length > 0) return `missing ${missing.join(', ')}`
+    return 'unexpected database error'
+  }
+
+  private static logEnvDiagnostics(provider: string, extra?: Record<string, unknown>) {
+    const dbUrl = getEnvVar('TURSO_DATABASE_URL')
+    const dbToken = getEnvVar('TURSO_AUTH_TOKEN')
+    const jwt = process.env.JWT_SECRET
+    console.error('auth:diagnostics', {
+      provider,
+      tursoDatabaseUrl: this.sanitizeDbUrlHost(dbUrl),
+      tursoAuthToken: dbToken ? 'present' : 'missing',
+      jwtSecret: jwt ? 'present' : 'missing',
+      ...extra
+    })
+  }
 
   static generateJWT(userId: string): string {
     // jose produces Uint8Array key; we return compact JWS string synchronously is not supported.
@@ -100,6 +136,7 @@ export class AuthService {
     try {
       // Basic JWT decode for base64url (no signature verify here)
       const [, payloadB64Url] = data.idToken.split('.')
+      if (!payloadB64Url) return null
       const padded = payloadB64Url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payloadB64Url.length / 4) * 4, '=')
       const binary = atob(padded)
       const bytes = new Uint8Array(binary.length)
@@ -118,6 +155,8 @@ export class AuthService {
           .join(' ')
       }
 
+      // Some Apple flows only provide email on the very first sign-in.
+      // If missing, we will synthesize later using sub.
       return {
         sub: payload.sub,
         email: data.email || payload.email,
@@ -144,13 +183,19 @@ export class AuthService {
       throw new Error('Invalid Google token')
     }
 
-    const user = await UserService.upsertUser({
-      email: payload.email,
-      name: payload.name,
-      avatar: payload.picture,
-      provider: 'google',
-      providerId: payload.sub
-    })
+    let user
+    try {
+      user = await UserService.upsertUser({
+        email: payload.email,
+        name: payload.name,
+        avatar: payload.picture,
+        provider: 'google',
+        providerId: payload.sub
+      })
+    } catch (error: any) {
+      this.logEnvDiagnostics('google', { error: String(error?.message || error) })
+      throw new Error(`Authentication failed: ${this.describeDbConfigIssue()}`)
+    }
 
     const token = await this.generateJWTAsync(user.id)
 
@@ -159,7 +204,7 @@ export class AuthService {
         id: user.id,
         name: user.name || '',
         email: user.email,
-        profileImageURL: user.avatar
+          profileImageURL: user.avatar ?? undefined
       },
       token
     }
@@ -172,12 +217,24 @@ export class AuthService {
       throw new Error('Invalid Apple token')
     }
 
-    const user = await UserService.upsertUser({
-      email: payload.email,
-      name: payload.name,
-      provider: 'apple',
-      providerId: payload.sub
-    })
+    // Ensure we always provide a valid, unique email.
+    // Apple may not include email except on first authorization; synthesize a stable placeholder.
+    const safeEmail = payload.email && payload.email.trim().length > 0
+      ? payload.email
+      : `${payload.sub}@apple.local`
+
+    let user
+    try {
+      user = await UserService.upsertUser({
+        email: safeEmail,
+        name: payload.name || 'Apple User',
+        provider: 'apple',
+        providerId: payload.sub
+      })
+    } catch (error: any) {
+      this.logEnvDiagnostics('apple', { error: String(error?.message || error) })
+      throw new Error(`Authentication failed: ${this.describeDbConfigIssue()}`)
+    }
 
     const token = await this.generateJWTAsync(user.id)
 
@@ -186,7 +243,7 @@ export class AuthService {
         id: user.id,
         name: user.name || '',
         email: user.email,
-        profileImageURL: user.avatar
+          profileImageURL: user.avatar ?? undefined
       },
       token
     }
@@ -213,7 +270,7 @@ export class AuthService {
         id: user.id,
         name: user.name || '',
         email: user.email,
-        profileImageURL: user.avatar
+          profileImageURL: user.avatar ?? undefined
       },
       token
     }
@@ -228,13 +285,19 @@ export class AuthService {
 
     const passwordHash = await this.hashPassword(password)
     
-    const user = await UserService.upsertUser({
-      email,
-      name,
-      provider: 'password',
-      providerId: email, // Use email as providerId for password auth
-      passwordHash
-    })
+    let user
+    try {
+      user = await UserService.upsertUser({
+        email,
+        name,
+        provider: 'password',
+        providerId: email, // Use email as providerId for password auth
+        passwordHash
+      })
+    } catch (error: any) {
+      this.logEnvDiagnostics('password', { error: String(error?.message || error) })
+      throw new Error(`Registration failed: ${this.describeDbConfigIssue()}`)
+    }
 
     const token = await this.generateJWTAsync(user.id)
 
@@ -243,7 +306,7 @@ export class AuthService {
         id: user.id,
         name: user.name || '',
         email: user.email,
-        profileImageURL: user.avatar
+          profileImageURL: user.avatar ?? undefined
       },
       token
     }

@@ -1,5 +1,6 @@
 import getPrisma from '../../dbConfig'
 import { RatePhotoResponse, UserRankingResponse, RankingListResponse, UserStatsResponse } from './model'
+import { getPresignedGetUrl } from '../file/presign'
 
 // 計算總分：(❤️票數 × 1 + 🔄票數 × 0.2) ÷ 總票數 × 100
 const calculateTotalScore = (likeCount: number, normalCount: number): number => {
@@ -153,12 +154,14 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
       totalRatings,
       overallRank,
       genderRank,
-      recentRatings: recentRatings.map(rating => ({
-        photoId: rating.photoId,
-        photoUrl: rating.photo.url,
-        type: rating.type,
-        createdAt: rating.createdAt
-      }))
+      recentRatings: await Promise.all(
+        recentRatings.map(async (rating) => ({
+          photoId: rating.photoId,
+          photoUrl: await getPresignedGetUrl(rating.photo.key, 60 * 60 * 24 * 7),
+          type: rating.type,
+          createdAt: rating.createdAt
+        }))
+      )
     }
   } catch (error: any) {
     throw error
@@ -274,9 +277,16 @@ export const getRandomPhotosForRating = async (userId: string, limit: number = 1
       take: limit * 2 // 取更多然後隨機選擇
     })
 
-    // 隨機排序並取指定數量
+    // 隨機排序並取指定數量，並將 URL 轉為 presigned URL
     const shuffled = photos.sort(() => 0.5 - Math.random())
-    return shuffled.slice(0, limit)
+    const selected = shuffled.slice(0, limit)
+    const presigned = await Promise.all(
+      selected.map(async (photo) => ({
+        ...photo,
+        url: await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7) // 7 天有效
+      }))
+    )
+    return presigned
   } catch (error: any) {
     throw error
   }

@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { TagService } from './service'
+import { getPresignedGetUrl } from '../file/presign'
 import { requireAuth } from '../auth/middleware'
 import getPrisma from '../../dbConfig'
 
@@ -8,7 +9,7 @@ export const tagModule = new Elysia({ prefix: '/tags' })
   .derive(() => ({ tagService: new TagService(getPrisma()) }))
   
   // 獲取所有標籤
-  .get('/', async ({ tagService, query }) => {
+  .get('/', async ({ tagService, query, set }) => {
     try {
       const tags = query.category 
         ? await tagService.getTagsByCategory(query.category)
@@ -20,6 +21,7 @@ export const tagModule = new Elysia({ prefix: '/tags' })
       }
     } catch (error) {
       console.error('獲取標籤失敗:', error)
+      set.status = 500
       return {
         success: false,
         error: '獲取標籤失敗'
@@ -32,7 +34,7 @@ export const tagModule = new Elysia({ prefix: '/tags' })
   })
 
   // 獲取熱門標籤
-  .get('/popular', async ({ tagService, query }) => {
+  .get('/popular', async ({ tagService, query, set }) => {
     try {
       const tags = await tagService.getPopularTags(query.limit || 10)
       
@@ -42,6 +44,7 @@ export const tagModule = new Elysia({ prefix: '/tags' })
       }
     } catch (error) {
       console.error('獲取熱門標籤失敗:', error)
+      set.status = 500
       return {
         success: false,
         error: '獲取熱門標籤失敗'
@@ -136,9 +139,17 @@ export const tagModule = new Elysia({ prefix: '/tags' })
         query.offset || 0
       )
       
+      // 將 url 轉為 presigned URL
+      const transformed = await Promise.all(
+        photos.map(async (p: any) => ({
+          ...p,
+          url: await getPresignedGetUrl(p.key, 60 * 60 * 24 * 7)
+        }))
+      )
+      
       return {
         success: true,
-        data: photos
+        data: transformed
       }
     } catch (error) {
       console.error('搜索照片失敗:', error)

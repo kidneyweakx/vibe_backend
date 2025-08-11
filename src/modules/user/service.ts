@@ -16,21 +16,49 @@ export interface UpdateUserData {
 
 export class UserService {
   static async upsertUser(data: CreateUserData) {
-    return await getPrisma().user.upsert({
-      where: {
-        provider_providerId: {
-          provider: data.provider,
-          providerId: data.providerId
+    const prisma = getPrisma()
+    // Ensure required fields are safe. For providers that may not supply email (e.g., Apple after first login),
+    // callers should synthesize a placeholder email. We double-check here to avoid empty emails.
+    const safeEmail = data.email && data.email.trim().length > 0 ? data.email : `${data.provider}_${data.providerId}@placeholder.local`
+    try {
+      return await prisma.user.upsert({
+        where: {
+          provider_providerId: {
+            provider: data.provider,
+            providerId: data.providerId
+          }
+        },
+        update: {
+          email: safeEmail,
+          name: data.name,
+          avatar: data.avatar,
+          updatedAt: new Date()
+        },
+        create: {
+          ...data,
+          email: safeEmail
         }
-      },
-      update: {
-        email: data.email,
-        name: data.name,
-        avatar: data.avatar,
-        updatedAt: new Date()
-      },
-      create: data
-    })
+      })
+    } catch (error: any) {
+      // Handle unique email conflicts by merging accounts based on email
+      const isUniqueEmailConflict = error?.code === 'P2002' || (typeof error?.message === 'string' && error.message.includes('Unique constraint') && error.message.includes('email'))
+      if (!isUniqueEmailConflict) throw error
+
+      const existingByEmail = await prisma.user.findUnique({ where: { email: safeEmail } })
+      if (!existingByEmail) throw error
+
+      // Merge: update the existing user with the latest provider info and profile fields
+      return prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: {
+          provider: data.provider,
+          providerId: data.providerId,
+          name: data.name ?? existingByEmail.name,
+          avatar: data.avatar ?? existingByEmail.avatar,
+          updatedAt: new Date()
+        }
+      })
+    }
   }
 
   static async getUserById(id: string) {

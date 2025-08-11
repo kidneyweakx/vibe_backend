@@ -8,8 +8,10 @@ export const auth = new Elysia({ prefix: '/auth' })
       const authResponse = await AuthService.signInWithGoogle(body.idToken, body.accessToken)
       return authResponse
     } catch (error) {
-      set.status = 401
-      throw new Error(error instanceof Error ? error.message : 'Google authentication failed')
+      const message = error instanceof Error ? error.message : 'Google authentication failed'
+      const isAuthError = /invalid|unauthor/i.test(message)
+      set.status = isAuthError ? 401 : 500
+      return { success: false, error: message }
     }
   }, {
     body: t.Object({
@@ -31,9 +33,10 @@ export const auth = new Elysia({ prefix: '/auth' })
       })
       return authResponse
     } catch (error) {
-      set.status = 500
       const message = error instanceof Error ? error.message : 'Apple authentication failed'
-      return { success: false, error: message, hint: 'Check TURSO_DATABASE_URL/TURSO_AUTH_TOKEN secrets and Apple idToken payload.' }
+      const isAuthError = /invalid|unauthor/i.test(message)
+      set.status = isAuthError ? 401 : 500
+      return { success: false, error: message }
     }
   }, {
     body: t.Object({
@@ -126,7 +129,7 @@ export const auth = new Elysia({ prefix: '/auth' })
   })
 
   // Legacy endpoints for backward compatibility
-  .post('/google', async ({ body }) => {
+  .post('/google', async ({ body, set }) => {
     try {
       const authResponse = await AuthService.signInWithGoogle(body.token)
       return { 
@@ -135,10 +138,10 @@ export const auth = new Elysia({ prefix: '/auth' })
         message: 'Google sign in successful'
       }
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Google sign in failed'
-      }
+      const message = error instanceof Error ? error.message : 'Google sign in failed'
+      const isAuthError = /invalid|unauthor/i.test(message)
+      set.status = isAuthError ? 401 : 500
+      return { success: false, error: message }
     }
   }, {
     body: t.Object({
@@ -146,7 +149,7 @@ export const auth = new Elysia({ prefix: '/auth' })
     })
   })
 
-  .post('/apple', async ({ body }) => {
+  .post('/apple', async ({ body, set }) => {
     try {
       const authResponse = await AuthService.signInWithApple({
         idToken: body.identityToken,
@@ -159,10 +162,10 @@ export const auth = new Elysia({ prefix: '/auth' })
         message: 'Apple sign in successful'
       }
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Apple sign in failed'
-      }
+      const message = error instanceof Error ? error.message : 'Apple sign in failed'
+      const isAuthError = /invalid|unauthor/i.test(message)
+      set.status = isAuthError ? 401 : 500
+      return { success: false, error: message }
     }
   }, {
     body: t.Object({
