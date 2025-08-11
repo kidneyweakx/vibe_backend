@@ -20,7 +20,9 @@
     "init-tags": "bun run scripts/init-tags.ts",
     "init-tags:en": "bun run scripts/init-tags-en.ts",
     "test-tags": "bun run scripts/test-tags.ts",
-    "fake:import": "bun run fake-data/import.ts"
+    "fake:import": "bun run fake-data/import.ts",
+    "fake:event": "bun run fake-data/import.ts --events-only --external",
+    "fake:event:clear": "bun run fake-data/import.ts --events-only --events-clear"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",

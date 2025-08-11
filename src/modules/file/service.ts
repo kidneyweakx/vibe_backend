@@ -187,6 +187,22 @@ export const generatePhotoKey = (userId: string, format: string = 'png'): string
   return `photos/${userId}/${Date.now()}.${format}`
 }
 
+export const getExtensionFromContentType = (contentType?: string): string => {
+  switch ((contentType || '').toLowerCase()) {
+    case 'image/webp':
+      return 'webp'
+    case 'image/jpeg':
+    case 'image/jpg':
+      return 'jpg'
+    case 'image/png':
+      return 'png'
+    case 'image/gif':
+      return 'gif'
+    default:
+      return 'png'
+  }
+}
+
 export const confirmPhotoUpload = async (
   params: { userId: string; key: string; format?: string; size?: number }
 ): Promise<PhotoUploadResponse> => {

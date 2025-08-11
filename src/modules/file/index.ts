@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { uploadToR2, verifyFile, deleteFile, testR2Config, uploadPhoto, getUserPhotos, deletePhoto, confirmPhotoUpload, generatePhotoKey } from './service'
+import { uploadToR2, verifyFile, deleteFile, testR2Config, uploadPhoto, getUserPhotos, deletePhoto, confirmPhotoUpload, generatePhotoKey, getExtensionFromContentType } from './service'
 import { getPresignedPutUrl } from './presign'
 
 export const fileModule = new Elysia({ prefix: '/file' })
@@ -92,6 +92,51 @@ export const fileModule = new Elysia({ prefix: '/file' })
   })
   
   // Presigned direct upload flow
+  .post('/presign', async ({ body, set }) => {
+    try {
+      const { userId, contentType, key } = body as { userId: string; contentType?: string; key?: string }
+      if (!userId) {
+        set.status = 422
+        return { success: false, error: 'userId is required' }
+      }
+      const ext = getExtensionFromContentType(contentType)
+      const finalKey = key && key.length > 0 ? key : generatePhotoKey(userId, ext)
+      const url = await getPresignedPutUrl(finalKey, contentType || `image/${ext}`, 60 * 10)
+      return { success: true, data: { url, key: finalKey, headers: { 'Content-Type': contentType || `image/${ext}` } } }
+    } catch (error: any) {
+      set.status = 400
+      return { success: false, error: error.message }
+    }
+  }, {
+    body: t.Object({
+      userId: t.String(),
+      contentType: t.Optional(t.String()),
+      key: t.Optional(t.String())
+    })
+  })
+
+  .post('/photos/complete', async ({ body, set }) => {
+    try {
+      const { userId, key, contentType, sizeBytes } = body as { userId: string; key: string; contentType?: string; sizeBytes?: number }
+      if (!userId || !key) {
+        set.status = 422
+        return { success: false, error: 'userId and key are required' }
+      }
+      const format = getExtensionFromContentType(contentType) || (key.split('.').pop() || 'png')
+      const result = await confirmPhotoUpload({ userId, key, format, size: sizeBytes })
+      return { success: true, data: result }
+    } catch (error: any) {
+      set.status = 400
+      return { success: false, error: error.message }
+    }
+  }, {
+    body: t.Object({
+      userId: t.String(),
+      key: t.String(),
+      contentType: t.Optional(t.String()),
+      sizeBytes: t.Optional(t.Number())
+    })
+  })
   .post('/photos/presign', async ({ body, set }) => {
     try {
       const { userId, format, contentType } = body as { userId: string; format?: string; contentType?: string }
