@@ -4,7 +4,8 @@ export interface CreateUserData {
   email: string
   name?: string
   avatar?: string
-  provider: 'google' | 'apple' | 'password' | 'test'
+  gender?: string
+  provider: 'google' | 'apple' | 'password' | 'test' | 'guest'
   providerId: string
   passwordHash?: string
 }
@@ -12,6 +13,7 @@ export interface CreateUserData {
 export interface UpdateUserData {
   name?: string
   avatar?: string
+  gender?: string
 }
 
 export class UserService {
@@ -32,6 +34,7 @@ export class UserService {
           email: safeEmail,
           name: data.name,
           avatar: data.avatar,
+          gender: data.gender,
           updatedAt: new Date()
         },
         create: {
@@ -55,6 +58,7 @@ export class UserService {
           providerId: data.providerId,
           name: data.name ?? existingByEmail.name,
           avatar: data.avatar ?? existingByEmail.avatar,
+          gender: data.gender ?? existingByEmail.gender ?? undefined,
           updatedAt: new Date()
         }
       })
