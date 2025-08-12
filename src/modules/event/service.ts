@@ -1,7 +1,7 @@
 import getPrisma from '../../dbConfig'
 import { getR2Client } from '../file/r2Client'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { getPublicObjectUrl } from '../file/presign'
+import { getPublicObjectUrl, getPresignedGetUrl } from '../file/presign'
 
 type UploadEventParams = {
   title: string
@@ -38,6 +38,7 @@ export async function uploadEventImage(params: UploadEventParams) {
       description: params.description,
       key,
       url,
+      imageUrl: url,
       format: 'webp',
       size: bytes.length,
       startsAt: params.startsAt,
@@ -54,7 +55,17 @@ export async function listEvents(limit: number = 20) {
     orderBy: { startsAt: 'desc' },
     take: limit
   })
-  return events
+  // Return presigned image URLs for clients to load privately stored images
+  const withSignedUrls = await Promise.all(events.map(async (e) => {
+    // For external events, keep the original external URL
+    if (e.format === 'external' || e.key.startsWith('external:')) {
+      return { ...e, imageUrl: e.url }
+    }
+    // For R2-backed images, generate a presigned GET url
+    const signed = await getPresignedGetUrl(e.key, 60 * 60)
+    return { ...e, imageUrl: signed }
+  }))
+  return withSignedUrls
 }
 
 

@@ -88,6 +88,7 @@ model Event {
   description String?
   key         String   @unique // R2 storage key
   url         String   // Public URL
+  imageUrl    String?  // Public image URL (may be same as url); presigned GET will be generated at runtime
   format      String   // image format (webp preferred)
   size        Int      // file size in bytes
   startsAt    DateTime
