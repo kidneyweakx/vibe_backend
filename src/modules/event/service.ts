@@ -55,15 +55,22 @@ export async function listEvents(limit: number = 20) {
     orderBy: { startsAt: 'desc' },
     take: limit
   })
-  // Return presigned image URLs for clients to load privately stored images
+  
+  // Temporary fix: try to generate presigned URLs, fallback to original URL if it fails
   const withSignedUrls = await Promise.all(events.map(async (e) => {
-    // For external events, keep the original external URL
-    if (e.format === 'external' || e.key.startsWith('external:')) {
+    try {
+      // For external events, keep the original external URL
+      if (e.format === 'external' || e.key.startsWith('external:')) {
+        return { ...e, imageUrl: e.url }
+      }
+      // For R2-backed images, generate a presigned GET url
+      const signed = await getPresignedGetUrl(e.key, 60 * 60)
+      return { ...e, imageUrl: signed }
+    } catch (error) {
+      console.error('Failed to generate presigned URL for event:', e.id, error)
+      // Fallback to original URL if presigned URL generation fails
       return { ...e, imageUrl: e.url }
     }
-    // For R2-backed images, generate a presigned GET url
-    const signed = await getPresignedGetUrl(e.key, 60 * 60)
-    return { ...e, imageUrl: signed }
   }))
   return withSignedUrls
 }

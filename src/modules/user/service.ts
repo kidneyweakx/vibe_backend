@@ -44,7 +44,11 @@ export class UserService {
       })
     } catch (error: any) {
       // Handle unique email conflicts by merging accounts based on email
-      const isUniqueEmailConflict = error?.code === 'P2002' || (typeof error?.message === 'string' && error.message.includes('Unique constraint') && error.message.includes('email'))
+      // Normalize message to lower-case to avoid case-sensitivity pitfalls across drivers
+      const message: string = typeof error?.message === 'string' ? error.message.toLowerCase() : ''
+      const isUniqueEmailConflict =
+        error?.code === 'P2002' ||
+        (message.includes('unique constraint') && message.includes('email'))
       if (!isUniqueEmailConflict) throw error
 
       const existingByEmail = await prisma.user.findUnique({ where: { email: safeEmail } })

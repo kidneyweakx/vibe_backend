@@ -108,11 +108,12 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     const totalRatings = likeCount + normalCount
     const totalScore = calculateTotalScore(likeCount, normalCount)
 
-    // 獲取所有用戶的分數來計算排名
+    // 獲取所有用戶的分數來計算排名（過濾掉 guest 用戶）
     const allUserStats = await getPrisma().rating.groupBy({
       by: ['ratedUserId'],
       where: {
-        type: { in: ['like', 'normal'] }
+        type: { in: ['like', 'normal'] },
+        ratedUserId: { not: { startsWith: 'guest' } }
       },
       _count: {
         _all: true
@@ -140,11 +141,14 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
     const betterUsers = userScores.filter(u => u.score > totalScore)
     const overallRank = betterUsers.length + 1
 
-    // 獲取性別排名（如果有性別信息）
+    // 獲取性別排名（如果有性別信息，過濾掉 guest 用戶）
     let genderRank: number | undefined
     if (user.gender) {
       const sameGenderUsers = await getPrisma().user.findMany({
-        where: { gender: user.gender },
+        where: { 
+          gender: user.gender,
+          id: { not: { startsWith: 'guest' } }
+        },
         select: { id: true }
       })
       
@@ -190,11 +194,12 @@ export const getUserStats = async (userId: string): Promise<UserStatsResponse> =
 
 export const getRankingList = async (limit: number = 50): Promise<RankingListResponse> => {
   try {
-    // 獲取所有有評分的用戶
+    // 獲取所有有評分的用戶（過濾掉 guest 用戶）
     const allUserStats = await getPrisma().rating.groupBy({
       by: ['ratedUserId'],
       where: {
-        type: { in: ['like', 'normal'] }
+        type: { in: ['like', 'normal'] },
+        ratedUserId: { not: { startsWith: 'guest' } }
       },
       _count: {
         _all: true
@@ -255,8 +260,10 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
         rank: index + 1
       }))
 
-    // 獲取總用戶數
-    const totalUsers = await getPrisma().user.count()
+    // 獲取總用戶數（過濾掉 guest 用戶）
+    const totalUsers = await getPrisma().user.count({
+      where: { id: { not: { startsWith: 'guest' } } }
+    })
 
     return {
       overall: overallUsers,
@@ -271,11 +278,12 @@ export const getRankingList = async (limit: number = 50): Promise<RankingListRes
 
 export const getRandomPhotosForRating = async (userId: string, limit: number = 10) => {
   try {
-    // 取每位其他用戶的「最新上傳照片」，且該照片尚未被當前用戶評分
+    // 取每位其他用戶的「最新上傳照片」，且該照片尚未被當前用戶評分（過濾掉 guest 用戶的照片）
     const latestPerUser = await getPrisma().photo.findMany({
       where: {
         AND: [
           { userId: { not: userId } },
+          { userId: { not: { startsWith: 'guest' } } },
           {
             ratings: {
               none: {
