@@ -2,6 +2,7 @@ import getPrisma from '../../dbConfig'
 import { getR2Client } from '../file/r2Client'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getPublicObjectUrl, getPresignedGetUrl } from '../file/presign'
+import { deleteFile } from '../file/service'
 
 type UploadEventParams = {
   title: string
@@ -73,6 +74,31 @@ export async function listEvents(limit: number = 20) {
     }
   }))
   return withSignedUrls
+}
+
+export async function deleteEvent(eventId: string): Promise<{ success: boolean; error?: string }> {
+  const prisma = getPrisma()
+  try {
+    const event = await prisma.event.findUnique({ where: { id: eventId } })
+    if (!event) {
+      return { success: false, error: 'Event not found' }
+    }
+
+    // Delete from R2 if it is an R2 object (skip external)
+    const isExternal = event.format === 'external' || event.key.startsWith('external:')
+    if (!isExternal) {
+      const delRes = await deleteFile(event.key)
+      if (!delRes.success) {
+        return delRes
+      }
+    }
+
+    await prisma.event.delete({ where: { id: eventId } })
+    return { success: true }
+  } catch (error: any) {
+    console.error('Delete event error:', error)
+    return { success: false, error: String(error?.message || error) }
+  }
 }
 
 

@@ -1,7 +1,11 @@
 import { Elysia } from "elysia";
 
 export const accessTokenMiddleware = new Elysia()
-  .derive(({ headers }) => {
+  .derive(({ headers, request }) => {
+    // Allow CORS preflight without token
+    if (request.method === 'OPTIONS') {
+      return { accessToken: undefined } as any
+    }
     const accessToken = headers['x-access-token'] || headers['authorization']?.replace('Bearer ', '');
     const expectedToken = process.env.API_ACCESS_TOKEN;
     
