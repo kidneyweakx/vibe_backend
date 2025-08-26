@@ -10,7 +10,7 @@ export const getPublicObjectUrl = (key: string): string => {
 export const getPresignedGetUrl = async (key: string, expiresInSeconds: number = 3600): Promise<string> => {
   const { client, bucketName } = getR2Client()
   const command = new GetObjectCommand({ Bucket: bucketName, Key: key })
-  return await getSignedUrl(client, command, { expiresIn: expiresInSeconds })
+  return await getSignedUrl(client as any, command as any, { expiresIn: expiresInSeconds })
 }
 
 export const getPresignedPutUrl = async (
@@ -20,7 +20,7 @@ export const getPresignedPutUrl = async (
 ): Promise<string> => {
   const { client, bucketName } = getR2Client()
   const command = new PutObjectCommand({ Bucket: bucketName, Key: key, ContentType: contentType })
-  return await getSignedUrl(client, command, { expiresIn: expiresInSeconds })
+  return await getSignedUrl(client as any, command as any, { expiresIn: expiresInSeconds })
 }
 
 
