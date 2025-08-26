@@ -1,140 +1,85 @@
-import { PrismaClient } from '@prisma/client'
-import { beforeAll, afterAll, beforeEach } from 'bun:test'
+import { PrismaClient, Prisma } from '@prisma/client'
 
-// 測試數據庫配置
-export const testPrisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'file:./test.db'
-    }
-  }
-})
+// Dedicated Prisma client for tests that respects DATABASE_URL (file:./test.db)
+const datasourceUrl = process.env.DATABASE_URL || 'file:./test.db'
+export const testPrisma = new PrismaClient({ datasourceUrl })
 
-// 測試用戶數據
+// Reusable seed data used by existing service tests
 export const testUsers = {
   user1: {
-    id: 'test_user_1',
-    email: 'test1@example.com',
-    name: 'Test User 1',
+    id: 'user_1',
+    email: 'user1@example.com',
+    name: 'User One',
     provider: 'test',
-    providerId: 'test_user_1'
+    providerId: 'user_1'
   },
   user2: {
-    id: 'test_user_2',
-    email: 'test2@example.com',
-    name: 'Test User 2',
+    id: 'user_2',
+    email: 'user2@example.com',
+    name: 'User Two',
     provider: 'test',
-    providerId: 'test_user_2'
+    providerId: 'user_2'
   }
 }
 
-// 測試標籤數據
 export const testTags = [
-  {
-    id: 'test_tag_1',
-    name: 'sporty',
-    displayName: '運動風',
-    emoji: '🏃‍♀️',
-    color: '#FF6B35',
-    category: 'style'
-  },
-  {
-    id: 'test_tag_2',
-    name: 'streetwear',
-    displayName: '街頭潮流',
-    emoji: '🛹',
-    color: '#2E86AB',
-    category: 'style'
-  },
-  {
-    id: 'test_tag_3',
-    name: 'vintage',
-    displayName: '復古風',
-    emoji: '📻',
-    color: '#A23B72',
-    category: 'style'
-  }
+  { id: 'tag_1', name: 'sporty', displayName: '運動風', emoji: '🏃', color: '#27AE60', category: 'style' },
+  { id: 'tag_2', name: 'street', displayName: '街頭', emoji: '🛹', color: '#E67E22', category: 'style' },
+  { id: 'tag_3', name: 'elegant', displayName: '優雅', emoji: '👗', color: '#9B59B6', category: 'style' }
 ]
 
-// 測試照片數據
-export const testPhotos = [
-  {
-    id: 'test_photo_1',
-    userId: 'test_user_1',
-    key: 'test/photo1.jpg',
-    url: 'https://example.com/photo1.jpg',
-    format: 'jpg',
-    size: 1024
-  },
-  {
-    id: 'test_photo_2',
-    userId: 'test_user_1',
-    key: 'test/photo2.jpg',
-    url: 'https://example.com/photo2.jpg',
-    format: 'jpg',
-    size: 2048
-  },
-  {
-    id: 'test_photo_3',
-    userId: 'test_user_2',
-    key: 'test/photo3.jpg',
-    url: 'https://example.com/photo3.jpg',
-    format: 'jpg',
-    size: 1536
-  }
-]
+export let testPhotos: Array<Prisma.PhotoCreateManyInput> = []
 
-// 清理測試數據
-export async function cleanupTestData() {
-  await testPrisma.photoTag.deleteMany()
-  await testPrisma.photo.deleteMany()
-  await testPrisma.tag.deleteMany()
-  await testPrisma.rating.deleteMany()
-  await testPrisma.user.deleteMany()
+export async function cleanupTestData(): Promise<void> {
+  // Order matters due to FKs
+  await testPrisma.rating.deleteMany({})
+  await testPrisma.photoTag.deleteMany({})
+  await testPrisma.photo.deleteMany({})
+  await testPrisma.tag.deleteMany({})
+  await testPrisma.user.deleteMany({})
+  await (testPrisma as any).event?.deleteMany?.({})
 }
 
-// 設置測試數據
-export async function setupTestData() {
-  // 創建測試用戶
-  await testPrisma.user.createMany({
-    data: Object.values(testUsers)
-  })
+export async function setupTestData(): Promise<void> {
+  // Users
+  await testPrisma.user.createMany({ data: [testUsers.user1, testUsers.user2] })
 
-  // 創建測試標籤
-  await testPrisma.tag.createMany({
-    data: testTags
-  })
+  // Tags
+  await testPrisma.tag.createMany({ data: testTags })
 
-  // 創建測試照片
-  await testPrisma.photo.createMany({
-    data: testPhotos
-  })
+  // Photos
+  const now = Date.now()
+  testPhotos = [
+    {
+      id: 'photo_1',
+      userId: testUsers.user1.id,
+      key: 'test/user1/1.jpg',
+      url: 'https://example.com/test/user1/1.jpg',
+      format: 'jpg',
+      size: 12345,
+      uploadedAt: new Date(now - 2000)
+    },
+    {
+      id: 'photo_2',
+      userId: testUsers.user1.id,
+      key: 'test/user1/2.jpg',
+      url: 'https://example.com/test/user1/2.jpg',
+      format: 'jpg',
+      size: 23456,
+      uploadedAt: new Date(now - 1000)
+    },
+    {
+      id: 'photo_3',
+      userId: testUsers.user2.id,
+      key: 'test/user2/1.jpg',
+      url: 'https://example.com/test/user2/1.jpg',
+      format: 'jpg',
+      size: 34567,
+      uploadedAt: new Date(now - 3000)
+    }
+  ]
+
+  await testPrisma.photo.createMany({ data: testPhotos })
 }
 
-// 創建測試用的 JWT token
-export function createTestToken(userId: string): string {
-  // 這裡應該使用實際的 JWT 生成邏輯
-  // 為了測試簡化，返回一個模擬的 token
-  return `test_token_${userId}`
-}
 
-// Mock 認證中間件
-export const mockAuthUser = (userId: string) => ({
-  user: testUsers[userId as keyof typeof testUsers] || testUsers.user1
-})
-
-// 全局測試設置
-beforeAll(async () => {
-  // 運行數據庫遷移
-  await testPrisma.$executeRaw`PRAGMA foreign_keys = ON`
-})
-
-afterAll(async () => {
-  await cleanupTestData()
-  await testPrisma.$disconnect()
-})
-
-beforeEach(async () => {
-  await cleanupTestData()
-  await setupTestData()
-})

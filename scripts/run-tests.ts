@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { spawn } from 'bun'
-import { existsSync, unlinkSync } from 'fs'
+import { existsSync, unlinkSync, copyFileSync } from 'fs'
 
 const args = process.argv.slice(2)
 const command = args[0] || 'all'
@@ -20,7 +20,7 @@ async function setupTestDb() {
   
   // 創建測試數據庫 schema
   const pushResult = await spawn({
-    cmd: ['npx', 'prisma', 'db', 'push', '--force-reset'],
+    cmd: ['npx', 'prisma', 'db', 'push', '--force-reset', '--schema', 'tests/schema.test.prisma'],
     env: {
       ...process.env,
       DATABASE_URL: 'file:./test.db'
@@ -29,8 +29,14 @@ async function setupTestDb() {
   })
   
   if (pushResult.exitCode !== 0) {
-    console.error('❌ 測試數據庫設置失敗')
-    process.exit(1)
+    console.warn('⚠️ Prisma push returned non-zero. Falling back to copy prisma/dev.db → test.db')
+    try {
+      copyFileSync('prisma/dev.db', 'test.db')
+      console.log('✅ test.db created by copying prisma/dev.db')
+    } catch (e) {
+      console.error('❌ 測試數據庫設置失敗')
+      process.exit(1)
+    }
   }
   
   console.log('✅ 測試數據庫設置完成')
@@ -57,6 +63,20 @@ async function runTests(pattern?: string) {
   
   if (args.includes('--verbose')) {
     testArgs.push('--verbose')
+  }
+  
+  // Optional: seed fake data into test DB before running
+  if (args.includes('--seed-fake')) {
+    console.log('🌱 Seeding fake data into test database...')
+    const seedResult = await spawn({
+      cmd: ['bun', 'run', 'tests/seedFakeData.ts'],
+      env: { ...process.env, DATABASE_URL: 'file:./test.db' },
+      stdio: ['inherit', 'inherit', 'inherit']
+    })
+    if (seedResult.exitCode !== 0) {
+      console.error('❌ Failed to seed fake data')
+      return seedResult.exitCode
+    }
   }
   
   const testResult = await spawn({
@@ -113,6 +133,11 @@ async function main() {
         console.log('📸 運行照片相關測試')
         exitCode = await runTests('tests/photo.*.test.ts')
         break
+      
+      case 'services':
+        console.log('🧩 Run services tests')
+        exitCode = await runTests('tests/services')
+        break
         
       default:
         if (command.endsWith('.test.ts')) {
@@ -127,11 +152,13 @@ async function main() {
           console.log('  integration - 運行整合測試')
           console.log('  tag         - 運行標籤相關測試')
           console.log('  photo       - 運行照片相關測試')
+          console.log('  services    - Run tests under tests/services')
           console.log('  <filename>  - 運行特定測試文件')
           console.log('\n選項:')
           console.log('  --watch     - 監視模式')
           console.log('  --coverage  - 生成覆蓋率報告')
           console.log('  --verbose   - 詳細輸出')
+          console.log('  --seed-fake - Seed fake data before tests')
           process.exit(1)
         }
     }

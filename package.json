@@ -6,6 +6,8 @@
     "test:watch": "bun run scripts/run-tests.ts all --watch",
     "test:coverage": "bun run scripts/run-tests.ts all --coverage",
     "test:unit": "bun run scripts/run-tests.ts unit",
+    "test:services": "bun run scripts/run-tests.ts services",
+    "test:services:seed": "bun run scripts/run-tests.ts services --seed-fake",
     "test:api": "bun run scripts/run-tests.ts api",
     "test:integration": "bun run scripts/run-tests.ts integration",
     "test:tag": "bun run scripts/run-tests.ts tag",
@@ -22,7 +24,8 @@
     "test-tags": "bun run scripts/test-tags.ts",
     "fake:import": "bun run fake-data/import.ts",
     "fake:event": "bun run fake-data/import.ts --events-only",
-    "fake:event:clear": "bun run fake-data/import.ts --events-only --events-clear"
+    "fake:event:clear": "bun run fake-data/import.ts --events-only --events-clear",
+    "test:seed": "bun run tests/seedFakeData.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",

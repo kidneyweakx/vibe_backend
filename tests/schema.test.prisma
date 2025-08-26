@@ -1,0 +1,102 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  avatar       String?
+  gender       String?
+  provider     String
+  providerId   String
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  photos       Photo[]
+  givenRatings Rating[] @relation("RaterUser")
+  receivedRatings Rating[] @relation("RatedUser")
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model Photo {
+  id         String   @id @default(cuid())
+  userId     String
+  key        String   @unique
+  url        String
+  format     String
+  size       Int
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ratings    Rating[]
+  photoTags  PhotoTag[]
+
+  @@map("photos")
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  raterId   String
+  ratedUserId String
+  photoId   String
+  type      String
+  createdAt DateTime @default(now())
+  
+  rater     User     @relation("RaterUser", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade)
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([raterId, photoId])
+  @@map("ratings")
+}
+
+model Tag {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  displayName String     
+  emoji       String?    
+  color       String?    
+  category    String?    
+  createdAt   DateTime   @default(now())
+  photoTags   PhotoTag[]
+
+  @@map("tags")
+}
+
+model PhotoTag {
+  id      String @id @default(cuid())
+  photoId String
+  tagId   String
+  photo   Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, tagId])
+  @@map("photo_tags")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  key         String   @unique
+  url         String
+  imageUrl    String?
+  format      String
+  size        Int
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("events")
+}
+
+
