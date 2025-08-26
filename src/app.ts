@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { fileModule } from "./routes/file";
-import { user } from "./routes/user";
+import { userRoutes } from "./routes/user";
 import { authRoutes } from "./routes/auth";
 import { rateModule } from "./routes/rate";
 import { tagRoutes } from "./routes/tag";
@@ -31,7 +31,7 @@ export const app = new Elysia({ aot: false })
       .use(accessTokenMiddleware)
       .use(fileModule)
       .use(fileAdminModule)
-      .use(user)
+      .use(userRoutes)
       .use(authRoutes)
       .use(rateModule)
       .use(tagRoutes)
