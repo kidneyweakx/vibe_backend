@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { AuthService } from '../../modules/auth/service'
+import { AuthService } from '../../services/auth/service'
 
 export const passwordVerifyRoute = new Elysia()
   .post('/password/verify', async ({ body, set }) => {

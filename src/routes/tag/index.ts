@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { TagService } from './service'
-import { getPresignedGetUrl } from '../file/presign'
-import { requireAuth } from '../auth/middleware'
+import { getPresignedGetUrl } from '../../modules/file/presign'
+import { requireAuth } from '../../middlewares/auth'
 import getPrisma from '../../dbConfig'
 
 export const tagModule = new Elysia({ prefix: '/tags' })

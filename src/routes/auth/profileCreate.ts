@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
-import { UserService } from '../../modules/user/service'
-import { AuthService } from '../../modules/auth/service'
+import { UserService } from '../user/service'
+import { AuthService } from '../../services/auth/service'
 
 export const profileCreateRoute = new Elysia()
   .post('/profile/create', async ({ body, set }) => {

@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { AuthService } from '../../modules/auth/service'
+import { AuthService } from '../../services/auth/service'
 
 export const verifyTokenRoute = new Elysia()
   .get('/verify', async ({ headers, set }) => {

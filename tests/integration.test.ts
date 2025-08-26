@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
 import { Elysia } from 'elysia'
-import { tagModule } from '../src/modules/tag'
+import { tagModule } from '../src/routes/tag'
 import { fileModule } from '../src/modules/file'
 import { testPrisma, testUsers, testTags, cleanupTestData, setupTestData, mockAuthUser } from './setup'
 

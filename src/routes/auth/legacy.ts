@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { AuthService } from '../../modules/auth/service'
+import { AuthService } from '../../services/auth/service'
 
 export const legacyAuthRoutes = new Elysia()
   .post('/google', async ({ body, set }) => {

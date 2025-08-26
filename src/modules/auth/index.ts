@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
-import { AuthService } from './service'
-import { UserService } from '../user/service'
+import { AuthService } from '../../services/auth/service'
+import { UserService } from '../../routes/user/service'
 
 export const auth = new Elysia({ prefix: '/auth' })
   // Google Authentication - matches Swift client expectations

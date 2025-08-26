@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { Elysia } from 'elysia'
-import { tagModule } from '../src/modules/tag'
+import { tagModule } from '../src/routes/tag'
 import { testPrisma, testTags, testPhotos, testUsers, cleanupTestData, setupTestData, mockAuthUser } from './setup'
 
 describe('Tag API', () => {

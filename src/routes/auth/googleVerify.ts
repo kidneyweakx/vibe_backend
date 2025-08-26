@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { AuthService } from '../../modules/auth/service'
+import { AuthService } from '../../services/auth/service'
 
 export const googleVerifyRoute = new Elysia()
   .post('/google/verify', async ({ body, set }) => {

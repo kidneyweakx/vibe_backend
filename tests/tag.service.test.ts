@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
-import { TagService } from '../src/modules/tag/service'
+import { TagService } from '../src/routes/tag/service'
 import { testPrisma, testTags, testPhotos, cleanupTestData, setupTestData } from './setup'
 
 describe('TagService', () => {

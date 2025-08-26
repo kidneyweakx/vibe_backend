@@ -1,8 +1,9 @@
 import { Elysia } from 'elysia'
-import { AuthService } from './service'
+import { AuthService } from '../services/auth/service'
 
 export const authMiddleware = new Elysia({ name: 'auth' })
-  .derive(async ({ headers, set }) => {
+  .derive(async (ctx) => {
+    const { headers } = ctx as any
     const authHeader = headers.authorization
     
     if (!authHeader?.startsWith('Bearer ')) {
@@ -17,11 +18,13 @@ export const authMiddleware = new Elysia({ name: 'auth' })
 
 export const requireAuth = new Elysia({ name: 'requireAuth' })
   .use(authMiddleware)
-  .derive(({ user, set }) => {
+  .derive((ctx) => {
+    const { user, set } = ctx as any
     if (!user) {
       set.status = 401
       throw new Error('Authentication required')
     }
-    
     return { user }
   })
+
+

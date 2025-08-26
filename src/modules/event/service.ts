@@ -4,13 +4,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getPublicObjectUrl, getPresignedGetUrl } from '../file/presign'
 import { deleteFile } from '../file/service'
 
-type UploadEventParams = {
-  title: string
-  description?: string
-  imageBase64: string // base64 without data URL prefix
-  startsAt: Date
-  endsAt?: Date
-}
+import type { UploadEventParams } from '../../services/interfaces/event'
 
 export async function uploadEventImage(params: UploadEventParams) {
   const prisma = getPrisma()

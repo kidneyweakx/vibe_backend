@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { AuthService } from '../../modules/auth/service'
+import { AuthService } from '../../services/auth/service'
 
 export const appleVerifyRoute = new Elysia()
   .post('/apple/verify', async ({ body, set }) => {
