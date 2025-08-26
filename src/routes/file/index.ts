@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia'
-import { uploadToR2, verifyFile, deleteFile, testR2Config, uploadPhoto, getUserPhotos, deletePhoto, confirmPhotoUpload, generatePhotoKey, getExtensionFromContentType } from '../../modules/file/service'
-import { getPresignedPutUrl } from '../../modules/file/presign'
+import { uploadToR2, verifyFile, deleteFile, testR2Config, uploadPhoto, getUserPhotos, deletePhoto, confirmPhotoUpload, generatePhotoKey, getExtensionFromContentType } from './service'
+import { getPresignedPutUrl } from './presign'
 
-export const fileRoutes = new Elysia({ prefix: '/file' })
+export const fileModule = new Elysia({ prefix: '/file' })
   .post('/upload', async ({ body, set }) => {
     const { file, key } = body as { file: File; key?: string }
     
@@ -31,36 +31,55 @@ export const fileRoutes = new Elysia({ prefix: '/file' })
       key: t.Optional(t.String())
     })
   })
+  
   .get('/verify/:key', async ({ params }) => {
     const exists = await verifyFile(params.key)
     return { success: true, exists }
   })
+  
   .delete('/:key', async ({ params, set }) => {
     const result = await deleteFile(params.key)
+    
     if (!result.success) {
       set.status = 404
       return { success: false, error: result.error }
     }
+    
     return { success: true }
   })
+  
   .get('/test-config', async ({ set }) => {
     const result = await testR2Config()
+    
     if (!result.success) {
       set.status = 500
     }
+    
     return result
   })
-  .get('/test', () => ({ success: true, message: 'File API is working' }))
+  
+  // Test endpoint
+  .get('/test', () => {
+    console.log('Test endpoint hit')
+    return { success: true, message: 'File API is working' }
+  })
+  
+  // Photo API endpoints
   .post('/photos/upload', async ({ body, set }) => {
     try {
       const { userId, imageData, format } = body as { userId: string; imageData: string; format?: string }
+      
+      console.log('Photo upload request received:', { userId, format, imageDataLength: imageData?.length })
+      
       if (!userId || !imageData) {
         set.status = 400
         return { success: false, error: 'userId and imageData are required' }
       }
+      
       const result = await uploadPhoto(imageData, userId, format)
       return { success: true, data: result }
     } catch (error: any) {
+      console.error('Photo upload API error:', error)
       set.status = 400
       return { success: false, error: error.message }
     }
@@ -71,6 +90,8 @@ export const fileRoutes = new Elysia({ prefix: '/file' })
       format: t.Optional(t.String())
     })
   })
+  
+  // Presigned direct upload flow
   .post('/presign', async ({ body, set }) => {
     try {
       const { userId, contentType, key } = body as { userId: string; contentType?: string; key?: string }
@@ -93,6 +114,7 @@ export const fileRoutes = new Elysia({ prefix: '/file' })
       key: t.Optional(t.String())
     })
   })
+
   .post('/photos/complete', async ({ body, set }) => {
     try {
       const { userId, key, contentType, sizeBytes } = body as { userId: string; key: string; contentType?: string; sizeBytes?: number }
@@ -136,6 +158,7 @@ export const fileRoutes = new Elysia({ prefix: '/file' })
       contentType: t.Optional(t.String())
     })
   })
+
   .post('/photos/confirm', async ({ body, set }) => {
     try {
       const { userId, key, format, size } = body as { userId: string; key: string; format?: string; size?: number }
@@ -157,29 +180,32 @@ export const fileRoutes = new Elysia({ prefix: '/file' })
       size: t.Optional(t.Number())
     })
   })
+  
   .get('/photos/user/:userId', async ({ params, query }) => {
     try {
       const { userId } = params
       const page = parseInt(query.page as string) || 1
       const limit = parseInt(query.limit as string) || 20
+      
       const result = await getUserPhotos(userId, page, limit)
       return { success: true, data: result }
     } catch (error: any) {
       return { success: false, error: error.message }
     }
   })
+  
   .delete('/photos/:photoId', async ({ params, set }) => {
     try {
       const result = await deletePhoto(params.photoId)
+      
       if (!result.success) {
         set.status = 404
         return { success: false, error: result.error }
       }
+      
       return { success: true }
     } catch (error: any) {
       set.status = 500
       return { success: false, error: error.message }
     }
   })
-
-

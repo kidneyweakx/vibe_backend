@@ -1,7 +1,8 @@
 import { Elysia, t } from 'elysia'
-import { uploadEventImage, listEvents, deleteEvent } from '../../modules/event/service'
+import { uploadEventImage, listEvents } from './service'
 
-export const eventRoutes = new Elysia({ prefix: '/event' })
+export const eventModule = new Elysia({ prefix: '/event' })
+  // 上傳活動圖片與資訊
   .post('/upload', async ({ body, set }) => {
     try {
       const { title, description, imageBase64, startsAt, endsAt } = body as {
@@ -11,6 +12,7 @@ export const eventRoutes = new Elysia({ prefix: '/event' })
         startsAt: string
         endsAt?: string
       }
+
       const result = await uploadEventImage({
         title,
         description,
@@ -32,6 +34,8 @@ export const eventRoutes = new Elysia({ prefix: '/event' })
       endsAt: t.Optional(t.String())
     })
   })
+
+  // 取得活動列表
   .get('/list', async ({ set, query }) => {
     try {
       const limit = parseInt((query.limit as string) || '20')

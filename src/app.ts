@@ -1,12 +1,12 @@
 import { Elysia } from "elysia";
-import { fileRoutes } from "./routes/file";
+import { fileModule } from "./routes/file";
 import { user } from "./routes/user";
 import { authRoutes } from "./routes/auth";
 import { rateModule } from "./routes/rate";
 import { tagModule } from "./routes/tag";
-import { eventRoutes } from "./routes/event";
+import { eventModule } from "./routes/event";
 import { accessTokenMiddleware } from "./middlewares/accessToken";
-import { fileAdminModule } from "./modules/file/admin";
+import { fileAdminModule } from "./routes/file/admin";
 
 export const app = new Elysia({ aot: false })
   .group("/api", (grouped) =>
@@ -29,13 +29,13 @@ export const app = new Elysia({ aot: false })
         return null
       })
       .use(accessTokenMiddleware)
-      .use(fileRoutes)
+      .use(fileModule)
       .use(fileAdminModule)
       .use(user)
       .use(authRoutes)
       .use(rateModule)
       .use(tagModule)
-      .use(eventRoutes)
+      .use(eventModule)
   );
 
 export default app;

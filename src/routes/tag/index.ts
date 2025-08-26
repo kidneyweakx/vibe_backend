@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { TagService } from './service'
-import { getPresignedGetUrl } from '../../modules/file/presign'
+import { getPresignedGetUrl } from '../file/presign'
 import { requireAuth } from '../../middlewares/auth'
 import getPrisma from '../../dbConfig'
 
