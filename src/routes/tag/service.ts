@@ -1,151 +1,24 @@
-import { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
+import { getAllTags as svcGetAllTags } from '../../services/tag/getAllTags'
+import { getTagsByCategory as svcGetTagsByCategory } from '../../services/tag/getTagsByCategory'
+import { addTagsToPhoto as svcAddTagsToPhoto } from '../../services/tag/addTagsToPhoto'
+import { getPhotoTags as svcGetPhotoTags } from '../../services/tag/getPhotoTags'
+import { getPhotosByTags as svcGetPhotosByTags } from '../../services/tag/getPhotosByTags'
+import { getPopularTags as svcGetPopularTags } from '../../services/tag/getPopularTags'
+import { createTag as svcCreateTag } from '../../services/tag/createTag'
+import { updateTag as svcUpdateTag } from '../../services/tag/updateTag'
+import { deleteTag as svcDeleteTag } from '../../services/tag/deleteTag'
 
 export class TagService {
   constructor(private prisma: PrismaClient) {}
 
-  // 獲取所有標籤
-  async getAllTags() {
-    return this.prisma.tag.findMany({
-      orderBy: [
-        { category: 'asc' },
-        { displayName: 'asc' }
-      ]
-    })
-  }
-
-  // 根據分類獲取標籤
-  async getTagsByCategory(category: string) {
-    return this.prisma.tag.findMany({
-      where: { category },
-      orderBy: { displayName: 'asc' }
-    })
-  }
-
-  // 為照片添加標籤
-  async addTagsToPhoto(photoId: string, tagIds: string[]) {
-    // 先刪除現有的標籤關聯
-    await this.prisma.photoTag.deleteMany({
-      where: { photoId }
-    })
-
-    // 添加新的標籤關聯
-    const photoTags = tagIds.map(tagId => ({
-      photoId,
-      tagId
-    }))
-
-    return this.prisma.photoTag.createMany({
-      data: photoTags,
-      skipDuplicates: true
-    })
-  }
-
-  // 獲取照片的標籤
-  async getPhotoTags(photoId: string) {
-    return this.prisma.photoTag.findMany({
-      where: { photoId },
-      include: {
-        tag: true
-      }
-    })
-  }
-
-  // 根據標籤搜索照片
-  async getPhotosByTags(tagIds: string[], limit = 20, offset = 0) {
-    return this.prisma.photo.findMany({
-      where: {
-        photoTags: {
-          some: {
-            tagId: {
-              in: tagIds
-            }
-          }
-        }
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true
-          }
-        },
-        photoTags: {
-          include: {
-            tag: true
-          }
-        },
-        _count: {
-          select: {
-            ratings: true
-          }
-        }
-      },
-      orderBy: {
-        uploadedAt: 'desc'
-      },
-      take: limit,
-      skip: offset
-    })
-  }
-
-  // 獲取熱門標籤 (使用次數最多的標籤)
-  async getPopularTags(limit = 10) {
-    const result = await this.prisma.tag.findMany({
-      include: {
-        _count: {
-          select: {
-            photoTags: true
-          }
-        }
-      },
-      orderBy: {
-        photoTags: {
-          _count: 'desc'
-        }
-      },
-      take: limit
-    })
-
-    return result.filter(tag => tag._count.photoTags > 0)
-  }
-
-  // 創建新標籤 (管理員功能)
-  async createTag(data: {
-    name: string
-    displayName: string
-    emoji?: string
-    color?: string
-    category?: string
-  }) {
-    return this.prisma.tag.create({
-      data
-    })
-  }
-
-  // 更新標籤
-  async updateTag(id: string, data: {
-    displayName?: string
-    emoji?: string
-    color?: string
-    category?: string
-  }) {
-    return this.prisma.tag.update({
-      where: { id },
-      data
-    })
-  }
-
-  // 刪除標籤
-  async deleteTag(id: string) {
-    // 先刪除所有相關的 PhotoTag 記錄
-    await this.prisma.photoTag.deleteMany({
-      where: { tagId: id }
-    })
-
-    // 然後刪除標籤本身
-    return this.prisma.tag.delete({
-      where: { id }
-    })
-  }
+  async getAllTags() { return svcGetAllTags(this.prisma) }
+  async getTagsByCategory(category: string) { return svcGetTagsByCategory(this.prisma, category) }
+  async addTagsToPhoto(photoId: string, tagIds: string[]) { return svcAddTagsToPhoto(this.prisma, photoId, tagIds) }
+  async getPhotoTags(photoId: string) { return svcGetPhotoTags(this.prisma, photoId) }
+  async getPhotosByTags(tagIds: string[], limit = 20, offset = 0) { return svcGetPhotosByTags(this.prisma, tagIds, limit, offset) }
+  async getPopularTags(limit = 10) { return svcGetPopularTags(this.prisma, limit) }
+  async createTag(data: { name: string; displayName: string; emoji?: string; color?: string; category?: string }) { return svcCreateTag(this.prisma, data) }
+  async updateTag(id: string, data: { displayName?: string; emoji?: string; color?: string; category?: string }) { return svcUpdateTag(this.prisma, id, data) }
+  async deleteTag(id: string) { return svcDeleteTag(this.prisma, id) }
 }
