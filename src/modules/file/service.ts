@@ -2,7 +2,7 @@ import { R2UploadResult, UploadOptions, PhotoUploadResponse, PhotoListResponse, 
 import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { handleR2Error, logError } from './errors'
 import getPrisma from '../../dbConfig'
-import { getR2Client } from './r2Client'
+import { getR2Client } from '../../services/r2/r2Client'
 import { getPublicObjectUrl, getPresignedGetUrl } from './presign'
 
 // getR2Client moved to separate file for reuse

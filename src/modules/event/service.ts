@@ -1,5 +1,5 @@
 import getPrisma from '../../dbConfig'
-import { getR2Client } from '../file/r2Client'
+import { getR2Client } from '../../services/r2/r2Client'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getPublicObjectUrl, getPresignedGetUrl } from '../file/presign'
 import { deleteFile } from '../file/service'

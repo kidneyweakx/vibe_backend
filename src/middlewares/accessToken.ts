@@ -2,7 +2,6 @@ import { Elysia } from "elysia";
 
 export const accessTokenMiddleware = new Elysia()
   .derive(({ headers, request }) => {
-    // Allow CORS preflight without token
     if (request.method === 'OPTIONS') {
       return { accessToken: undefined } as any
     }
@@ -28,3 +27,5 @@ export const accessTokenMiddleware = new Elysia()
       };
     }
   });
+
+

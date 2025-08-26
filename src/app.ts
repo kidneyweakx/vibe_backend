@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
 import { fileModule } from "./modules/file";
 import { user } from "./modules/user";
-import { auth } from "./modules/auth";
+import { authRoutes } from "./routes/auth";
 import { rateModule } from "./modules/rate";
 import { tagModule } from "./modules/tag";
 import { eventModule } from "./modules/event";
-import { accessTokenMiddleware } from "./middleware/accessToken";
+import { accessTokenMiddleware } from "./middlewares/accessToken";
 import { fileAdminModule } from "./modules/file/admin";
 
 export const app = new Elysia({ aot: false })
@@ -32,7 +32,7 @@ export const app = new Elysia({ aot: false })
       .use(fileModule)
       .use(fileAdminModule)
       .use(user)
-      .use(auth)
+      .use(authRoutes)
       .use(rateModule)
       .use(tagModule)
       .use(eventModule)

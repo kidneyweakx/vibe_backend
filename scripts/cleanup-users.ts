@@ -2,7 +2,7 @@
 
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import getPrisma from '../src/dbConfig'
-import { getR2Client } from '../src/modules/file/r2Client'
+import { getR2Client } from '../src/services/r2/r2Client'
 
 function ensureEnvVars() {
   const required = [
