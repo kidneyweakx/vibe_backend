@@ -6,7 +6,7 @@ import { getPhotoTagsRoute } from './getPhotoTags'
 import { searchPhotosByTagsRoute } from './searchPhotos'
 import { createTagRoute } from './create'
 
-export const tagModule = new Elysia({ prefix: '/tags' })
+export const tagRoutes = new Elysia({ prefix: '/tags' })
   .use(getAllTagsRoute)
   .use(getPopularTagsRoute)
   .use(addPhotoTagsRoute)
