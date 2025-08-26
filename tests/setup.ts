@@ -4,6 +4,16 @@ import { PrismaClient, Prisma } from '@prisma/client'
 const datasourceUrl = process.env.DATABASE_URL || 'file:./test.db'
 export const testPrisma = new PrismaClient({ datasourceUrl })
 
+// Test DB lifecycle helpers
+export async function startTestDb(): Promise<void> {
+  // Ensure client connects and schema exists (schema is pushed by bun test pre-steps or CI)
+  await testPrisma.$connect()
+}
+
+export async function stopTestDb(): Promise<void> {
+  try { await testPrisma.$disconnect() } catch {}
+}
+
 // Reusable seed data used by existing service tests
 export const testUsers = {
   user1: {

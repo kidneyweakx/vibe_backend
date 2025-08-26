@@ -19,6 +19,13 @@ const requireEnv = (name: string): string => {
 export const getPrisma = (): PrismaClient => {
   if (prismaInstance) return prismaInstance
 
+  // Test/dev override: if DATABASE_URL is set to a SQLite URL, prefer it.
+  const databaseUrl = (typeof process !== 'undefined' ? (process.env as any)?.DATABASE_URL : undefined) as string | undefined
+  if (databaseUrl && /^(file:|:memory:)/i.test(databaseUrl)) {
+    prismaInstance = new PrismaClient({ datasourceUrl: databaseUrl, log: ['error'] })
+    return prismaInstance
+  }
+
   const rawUrl = requireEnv('TURSO_DATABASE_URL')
   const authToken = requireEnv('TURSO_AUTH_TOKEN')
 
