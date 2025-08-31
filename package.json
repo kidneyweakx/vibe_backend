@@ -19,7 +19,8 @@
     "fake:import": "bun run fake-data/import.ts",
     "fake:event": "bun run fake-data/import.ts --events-only",
     "fake:event:clear": "bun run fake-data/import.ts --events-only --events-clear",
-    "test:seed": "bun run tests/seedFakeData.ts"
+    "test:seed": "bun run tests/seedFakeData.ts",
+    "test:presign": "bun run scripts/test-presign.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",
