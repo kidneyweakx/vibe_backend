@@ -5,6 +5,7 @@ import { authRoutes } from "./routes/auth";
 import { rateModule } from "./routes/rate";
 import { tagRoutes } from "./routes/tag";
 import { eventModule } from "./routes/event";
+import { infoModule } from "./routes/info";
 import { accessTokenMiddleware } from "./middlewares/accessToken";
 import { fileAdminModule } from "./routes/file/admin";
 
@@ -36,6 +37,7 @@ export const app = new Elysia({ aot: false })
       .use(rateModule)
       .use(tagRoutes)
       .use(eventModule)
+      .use(infoModule)
   );
 
 export default app;
