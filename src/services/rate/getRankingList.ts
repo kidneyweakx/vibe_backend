@@ -1,5 +1,6 @@
 import getPrisma from '../../dbConfig'
 import { calculateTotalScore } from './calculateTotalScore'
+import { getPresignedGetUrl } from '../r2/presign'
 
 export async function getRankingList(limit: number = 50) {
   const prisma = getPrisma()
@@ -48,16 +49,27 @@ export async function getRankingList(limit: number = 50) {
     ORDER BY totalScore DESC
   `
 
-  // Convert BigInt to number for JavaScript compatibility
-  const processedScores = userScores.map(score => ({
-    userId: score.userId,
-    name: score.name || 'Unknown',
-    avatar: score.avatar ?? undefined,
-    gender: score.gender ?? undefined,
-    totalScore: Number(score.totalScore),
-    likeCount: Number(score.likeCount),
-    normalCount: Number(score.normalCount),
-    totalRatings: Number(score.totalRatings)
+  // Convert BigInt to number for JavaScript compatibility and generate presigned URLs for avatars
+  const processedScores = await Promise.all(userScores.map(async (score) => {
+    let avatarUrl: string | undefined = undefined
+    if (score.avatar) {
+      try {
+        avatarUrl = await getPresignedGetUrl(score.avatar, 60 * 60 * 24 * 7) // 7 days expiry
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for avatar ${score.avatar}:`, error)
+      }
+    }
+    
+    return {
+      userId: score.userId,
+      name: score.name || 'Unknown',
+      avatar: avatarUrl,
+      gender: score.gender ?? undefined,
+      totalScore: Number(score.totalScore),
+      likeCount: Number(score.likeCount),
+      normalCount: Number(score.normalCount),
+      totalRatings: Number(score.totalRatings)
+    }
   }))
 
   // Get total users count
