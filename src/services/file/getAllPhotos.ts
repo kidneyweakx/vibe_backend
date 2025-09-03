@@ -6,7 +6,10 @@ export async function getAllPhotos(params: { page?: number; limit?: number; user
   const page = params.page && params.page > 0 ? params.page : 1
   const limit = params.limit && params.limit > 0 ? params.limit : 20
   const skip = (page - 1) * limit
-  const where: any = {}
+  const where: any = {
+    // Always exclude profile pictures from general photo queries
+    key: { not: { startsWith: 'profile-pictures/' } }
+  }
   if (params.userId) where.userId = params.userId
   if (params.tagId) where.photoTags = { some: { tagId: params.tagId } }
   const [photos, totalCount] = await Promise.all([

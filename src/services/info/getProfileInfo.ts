@@ -137,15 +137,21 @@ async function getUserPhotosOptimized(userId: string, page: number = 1, limit: n
   const prisma = getPrisma()
   const skip = (page - 1) * limit
   
+  // Filter out profile pictures from user photos
+  const whereCondition = { 
+    userId,
+    key: { not: { startsWith: 'profile-pictures/' } }
+  }
+  
   const [photos, totalCount] = await Promise.all([
     prisma.photo.findMany({
-      where: { userId },
+      where: whereCondition,
       include: { photoTags: { include: { tag: true } } },
       orderBy: { uploadedAt: 'desc' },
       skip,
       take: limit
     }),
-    prisma.photo.count({ where: { userId } })
+    prisma.photo.count({ where: whereCondition })
   ])
   
   const photoInfos: PhotoInfo[] = await Promise.all(photos.map(async (photo) => ({
