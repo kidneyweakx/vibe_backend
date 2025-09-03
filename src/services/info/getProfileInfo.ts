@@ -58,10 +58,15 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
         latest_photo.url as latestPhotoUrl
       FROM users u
       LEFT JOIN (
-        SELECT DISTINCT ON (userId) userId, key, url
-        FROM photos 
+        SELECT userId, key, url
+        FROM photos p1
         WHERE key NOT LIKE 'profile-pictures/%'
-        ORDER BY userId, uploadedAt DESC
+          AND uploadedAt = (
+            SELECT MAX(uploadedAt)
+            FROM photos p2
+            WHERE p2.userId = p1.userId
+              AND p2.key NOT LIKE 'profile-pictures/%'
+          )
       ) latest_photo ON u.id = latest_photo.userId
       WHERE u.id = ${userId}
     `,

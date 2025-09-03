@@ -47,10 +47,15 @@ export async function getRankingList(limit: number = 50) {
       GROUP BY ratedUserId
     ) normal_stats ON u.id = normal_stats.ratedUserId
     LEFT JOIN (
-      SELECT DISTINCT ON (userId) userId, key
-      FROM photos 
+      SELECT userId, key
+      FROM photos p1
       WHERE key NOT LIKE 'profile-pictures/%'
-      ORDER BY userId, uploadedAt DESC
+        AND uploadedAt = (
+          SELECT MAX(uploadedAt)
+          FROM photos p2
+          WHERE p2.userId = p1.userId
+            AND p2.key NOT LIKE 'profile-pictures/%'
+        )
     ) latest_photo ON u.id = latest_photo.userId
     WHERE u.id NOT LIKE 'guest%'
       AND (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0

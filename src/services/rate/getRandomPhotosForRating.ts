@@ -7,6 +7,7 @@ export async function getRandomPhotosForRating(userId: string, limit: number = 1
       AND: [
         { userId: { not: userId } },
         { userId: { not: { startsWith: 'guest' } } },
+        { key: { not: { startsWith: 'profile-pictures/' } } },
         { ratings: { none: { raterId: userId } } }
       ]
     },
