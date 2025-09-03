@@ -84,22 +84,24 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
 
   const user = userData[0]
   
-  // Generate avatar URL (prioritize latest photo over user avatar)
+  // Generate avatar URL (prioritize profile picture over latest photo)
   let avatarUrl: string | undefined = undefined
-  if (user.latestPhotoKey) {
+  
+  // First try to use user's profile picture
+  if (user.avatar) {
+    try {
+      avatarUrl = await getPresignedGetUrl(user.avatar, 60 * 60 * 24 * 7) // 7 days expiry
+    } catch (error) {
+      console.warn(`Failed to generate presigned URL for profile picture ${user.avatar}:`, error)
+    }
+  }
+  
+  // Fallback to latest uploaded photo if no profile picture available
+  if (!avatarUrl && user.latestPhotoKey) {
     try {
       avatarUrl = await getPresignedGetUrl(user.latestPhotoKey, 60 * 60 * 24 * 7) // 7 days expiry
     } catch (error) {
       console.warn(`Failed to generate presigned URL for latest photo ${user.latestPhotoKey}:`, error)
-    }
-  }
-  
-  // Fallback to user's avatar if no latest photo available
-  if (!avatarUrl && user.avatar) {
-    try {
-      avatarUrl = await getPresignedGetUrl(user.avatar, 60 * 60 * 24 * 7) // 7 days expiry
-    } catch (error) {
-      console.warn(`Failed to generate presigned URL for avatar ${user.avatar}:`, error)
     }
   }
 

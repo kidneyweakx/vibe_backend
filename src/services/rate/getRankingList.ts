@@ -66,21 +66,21 @@ export async function getRankingList(limit: number = 50) {
   const processedScores = await Promise.all(userScores.map(async (score) => {
     let avatarUrl: string | undefined = undefined
     
-    // Prioritize latest uploaded photo over user's avatar
-    if (score.latestPhotoKey) {
+    // Prioritize user's profile picture over latest uploaded photo
+    if (score.avatar) {
+      try {
+        avatarUrl = await getPresignedGetUrl(score.avatar, 60 * 60 * 24 * 7) // 7 days expiry
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for profile picture ${score.avatar}:`, error)
+      }
+    }
+    
+    // Fallback to latest uploaded photo if no profile picture available
+    if (!avatarUrl && score.latestPhotoKey) {
       try {
         avatarUrl = await getPresignedGetUrl(score.latestPhotoKey, 60 * 60 * 24 * 7) // 7 days expiry
       } catch (error) {
         console.warn(`Failed to generate presigned URL for latest photo ${score.latestPhotoKey}:`, error)
-      }
-    }
-    
-    // Fallback to user's avatar if no latest photo available
-    if (!avatarUrl && score.avatar) {
-      try {
-        avatarUrl = await getPresignedGetUrl(score.avatar, 60 * 60 * 24 * 7) // 7 days expiry
-      } catch (error) {
-        console.warn(`Failed to generate presigned URL for avatar ${score.avatar}:`, error)
       }
     }
     

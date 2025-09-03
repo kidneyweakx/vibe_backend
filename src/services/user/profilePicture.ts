@@ -63,9 +63,9 @@ export async function uploadProfilePicture(userId: string, imageFile: File): Pro
     // Generate presigned URL
     const signedUrl = await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
 
-    // Update user profile with new avatar URL
+    // Update user profile with new avatar key (not URL)
     try {
-      await updateUser(userId, { avatar: uploadResult.url })
+      await updateUser(userId, { avatar: uploadResult.key })
     } catch (error: any) {
       return { success: false, error: 'Failed to update user profile' }
     }
@@ -78,7 +78,7 @@ export async function uploadProfilePicture(userId: string, imageFile: File): Pro
           original: signedUrl
         },
         uploadedAt: photo.uploadedAt,
-        avatarUrl: uploadResult.url
+        avatarUrl: signedUrl
       }
     }
   } catch (error: any) {
