@@ -10,6 +10,7 @@ export async function getRankingList(limit: number = 50) {
     userId: string
     name: string | null
     avatar: string | null
+    latestPhotoKey: string | null
     gender: string | null
     likeCount: bigint
     normalCount: bigint
@@ -21,6 +22,7 @@ export async function getRankingList(limit: number = 50) {
       u.name,
       u.avatar,
       u.gender,
+      latest_photo.key as latestPhotoKey,
       COALESCE(like_stats.likeCount, 0) as likeCount,
       COALESCE(normal_stats.normalCount, 0) as normalCount,
       COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0) as totalRatings,
@@ -44,6 +46,12 @@ export async function getRankingList(limit: number = 50) {
       WHERE type = 'normal' AND ratedUserId NOT LIKE 'guest%'
       GROUP BY ratedUserId
     ) normal_stats ON u.id = normal_stats.ratedUserId
+    LEFT JOIN (
+      SELECT DISTINCT ON (userId) userId, key
+      FROM photos 
+      WHERE key NOT LIKE 'profile-pictures/%'
+      ORDER BY userId, uploadedAt DESC
+    ) latest_photo ON u.id = latest_photo.userId
     WHERE u.id NOT LIKE 'guest%'
       AND (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0
     ORDER BY totalScore DESC
@@ -52,7 +60,18 @@ export async function getRankingList(limit: number = 50) {
   // Convert BigInt to number for JavaScript compatibility and generate presigned URLs for avatars
   const processedScores = await Promise.all(userScores.map(async (score) => {
     let avatarUrl: string | undefined = undefined
-    if (score.avatar) {
+    
+    // Prioritize latest uploaded photo over user's avatar
+    if (score.latestPhotoKey) {
+      try {
+        avatarUrl = await getPresignedGetUrl(score.latestPhotoKey, 60 * 60 * 24 * 7) // 7 days expiry
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for latest photo ${score.latestPhotoKey}:`, error)
+      }
+    }
+    
+    // Fallback to user's avatar if no latest photo available
+    if (!avatarUrl && score.avatar) {
       try {
         avatarUrl = await getPresignedGetUrl(score.avatar, 60 * 60 * 24 * 7) // 7 days expiry
       } catch (error) {
