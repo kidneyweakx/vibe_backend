@@ -10,9 +10,34 @@ export async function createReport(params: { photoId: string; reporterId?: strin
 
 export async function listReportsByPhoto(photoId: string) {
   const prisma = getPrisma()
-  const reports = await prisma.report.findMany({ where: { photoId }, orderBy: { createdAt: 'desc' } })
+  const reports = await prisma.report.findMany({
+    where: { photoId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      photo: { select: { id: true, userId: true, key: true, url: true, uploadedAt: true } },
+      reporter: { select: { id: true, email: true, name: true } }
+    }
+  })
   const count = await prisma.report.count({ where: { photoId } })
   return { reports, count }
+}
+
+export async function listAllReports(page: number = 1, limit: number = 20) {
+  const prisma = getPrisma()
+  const skip = (page - 1) * limit
+  const [reports, totalCount] = await Promise.all([
+    prisma.report.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: {
+        photo: { select: { id: true, userId: true, key: true, url: true, uploadedAt: true } },
+        reporter: { select: { id: true, email: true, name: true } }
+      }
+    }),
+    prisma.report.count()
+  ])
+  return { reports, totalCount, hasMore: skip + reports.length < totalCount }
 }
 
 export async function aggregateReportedPhotos(minReports: number = 2, page: number = 1, limit: number = 20) {

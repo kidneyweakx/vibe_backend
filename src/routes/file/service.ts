@@ -12,5 +12,6 @@ export {
   getAllPhotos,
   createReport,
   listReportsByPhoto,
+  listAllReports,
   aggregateReportedPhotos
 } from '../../services/file'
