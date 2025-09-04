@@ -9,4 +9,5 @@ export { deletePhoto } from './deletePhoto'
 export { getAllPhotos } from './getAllPhotos'
 export { generatePhotoKey } from './generatePhotoKey'
 export { getExtensionFromContentType } from './getExtensionFromContentType'
+export { createReport, listReportsByPhoto, aggregateReportedPhotos } from './report'
 

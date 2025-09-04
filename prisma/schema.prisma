@@ -22,6 +22,7 @@ model User {
   photos       Photo[]
   givenRatings Rating[] @relation("RaterUser")
   receivedRatings Rating[] @relation("RatedUser")
+  reportsSubmitted Report[] @relation("ReportReporter")
 
   @@unique([provider, providerId])
   @@map("users")
@@ -38,6 +39,7 @@ model Photo {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ratings    Rating[]
   photoTags  PhotoTag[]
+  reports    Report[]
 
   @@map("photos")
 }
@@ -97,4 +99,19 @@ model Event {
   updatedAt   DateTime @updatedAt
 
   @@map("events")
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  photoId    String
+  reporterId String?
+  reason     String
+  createdAt  DateTime @default(now())
+
+  photo    Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  reporter User?  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+
+  @@index([photoId])
+  @@index([reporterId])
+  @@map("reports")
 }

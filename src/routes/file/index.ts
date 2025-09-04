@@ -9,6 +9,7 @@ import { photosCompleteRoute } from './photosComplete'
 import { photosPresignRoute } from './photosPresign'
 import { photosGetByUserRoute } from './photosGetByUser'
 import { photosDeleteRoute } from './photosDelete'
+import { reportRoute } from './report'
 
 export const fileModule = new Elysia({ prefix: '/file' })
   .use(uploadRoute)
@@ -22,3 +23,4 @@ export const fileModule = new Elysia({ prefix: '/file' })
   .use(photosPresignRoute)
   .use(photosGetByUserRoute)
   .use(photosDeleteRoute)
+  .use(reportRoute)

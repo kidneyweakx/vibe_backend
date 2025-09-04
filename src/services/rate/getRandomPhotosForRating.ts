@@ -11,12 +11,23 @@ export async function getRandomPhotosForRating(userId: string, limit: number = 1
         { ratings: { none: { raterId: userId } } }
       ]
     },
-    include: { user: { select: { id: true, name: true, gender: true } } },
+    include: { 
+      user: { select: { id: true, name: true, gender: true } }
+    },
     orderBy: { uploadedAt: 'desc' },
     distinct: ['userId'],
-    take: limit * 3
+    take: limit * 8
   })
-  const shuffled = latestPerUser.sort(() => 0.5 - Math.random())
+  // filter out photos with >= 2 reports using raw query (avoids type coupling)
+  const reported = await getPrisma().$queryRaw<Array<{ photoId: string; reportCount: number | bigint }>>`
+    SELECT photoId, COUNT(*) as reportCount
+    FROM reports
+    GROUP BY photoId
+    HAVING COUNT(*) >= 2
+  `
+  const excluded = new Set(reported.map((r) => r.photoId))
+  const candidates = latestPerUser.filter((p) => !excluded.has(p.id))
+  const shuffled = candidates.sort(() => 0.5 - Math.random())
   const selected = shuffled.slice(0, limit)
   const withSignedUrl = await Promise.all(selected.map(async (photo) => ({
     ...photo,

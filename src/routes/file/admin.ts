@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { getAllPhotos, deletePhoto } from './service'
+import { getAllPhotos, deletePhoto, aggregateReportedPhotos } from './service'
 import { listEvents, deleteEvent } from '../event/service'
 
 export const fileAdminModule = new Elysia({ prefix: '/file/admin' })
@@ -39,6 +39,20 @@ export const fileAdminModule = new Elysia({ prefix: '/file/admin' })
     try {
       const limit = parseInt((query.limit as string) || '20')
       const data = await listEvents(limit)
+      return { success: true, data }
+    } catch (error: any) {
+      set.status = 500
+      return { success: false, error: error.message }
+    }
+  })
+
+  // List reported photos (admin)
+  .get('/reports', async ({ query, set }) => {
+    try {
+      const page = parseInt((query.page as string) || '1')
+      const limit = parseInt((query.limit as string) || '20')
+      const minReports = parseInt((query.minReports as string) || '2')
+      const data = await aggregateReportedPhotos(minReports, page, limit)
       return { success: true, data }
     } catch (error: any) {
       set.status = 500

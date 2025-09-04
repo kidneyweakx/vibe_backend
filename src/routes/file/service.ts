@@ -9,5 +9,8 @@ export {
   confirmPhotoUpload,
   getUserPhotos,
   deletePhoto,
-  getAllPhotos
+  getAllPhotos,
+  createReport,
+  listReportsByPhoto,
+  aggregateReportedPhotos
 } from '../../services/file'
