@@ -14,7 +14,12 @@ export const updateProfileRoute = new Elysia()
     body: t.Object({
       name: t.Optional(t.String()),
       avatar: t.Optional(t.String()),
-      gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female'), t.Literal('other')]))
+      gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female'), t.Literal('other')])),
+      bio: t.Optional(t.String()),
+      location: t.Optional(t.String()),
+      language: t.Optional(t.String()),
+      timezone: t.Optional(t.String()),
+      notificationsEnabled: t.Optional(t.Boolean())
     })
   })
 

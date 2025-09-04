@@ -8,6 +8,7 @@ import { eventModule } from "./routes/event";
 import { infoModule } from "./routes/info";
 import { accessTokenMiddleware } from "./middlewares/accessToken";
 import { fileAdminModule } from "./routes/file/admin";
+import { onboardingModule } from "./routes/onboarding";
 
 export const app = new Elysia({ aot: false })
   .group("/api", (grouped) =>
@@ -32,6 +33,7 @@ export const app = new Elysia({ aot: false })
       .use(accessTokenMiddleware)
       .use(fileModule)
       .use(fileAdminModule)
+      .use(onboardingModule)
       .use(userRoutes)
       .use(authRoutes)
       .use(rateModule)

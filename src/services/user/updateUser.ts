@@ -4,6 +4,11 @@ export interface UpdateUserData {
   name?: string
   avatar?: string
   gender?: string
+  bio?: string
+  location?: string
+  language?: string
+  timezone?: string
+  notificationsEnabled?: boolean
 }
 
 export async function updateUser(id: string, data: UpdateUserData) {
