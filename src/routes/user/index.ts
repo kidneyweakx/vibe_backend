@@ -8,6 +8,7 @@ import { createTestUserRoute } from './createTest'
 import { legacyUserRoutes } from './legacy'
 import { profilePictureRoute } from './profilePicture'
 import { userPreferencesRoute } from './preferences'
+import { deleteAccountRoute } from './delete'
 
 export const userRoutes = new Elysia({ prefix: '/user' })
   .use(getProfileRoute)
@@ -19,3 +20,4 @@ export const userRoutes = new Elysia({ prefix: '/user' })
   .use(legacyUserRoutes)
   .use(profilePictureRoute)
   .use(userPreferencesRoute)
+  .use(deleteAccountRoute)
