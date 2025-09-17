@@ -1,4 +1,4 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import getPrisma from '../../dbConfig'
 import { upsertUser } from '../../services/user'
 import { AuthService } from '../../services/auth/service'
@@ -9,6 +9,11 @@ export const onboardingRoute = new Elysia()
       const {
         account = {}, auth, demographics, questionnaire, consent, client
       } = body as any
+
+      if (!body || typeof body !== 'object') {
+        set.status = 400
+        return { success: false, error: 'Invalid JSON body' }
+      }
 
       if (!auth?.provider || !auth?.providerUserID) {
         set.status = 400
@@ -74,38 +79,6 @@ export const onboardingRoute = new Elysia()
       set.status = 400
       return { success: false, error: error.message }
     }
-  }, {
-    body: t.Object({
-      account: t.Optional(t.Object({
-        customUserID: t.Optional(t.String()),
-        displayName: t.Optional(t.String()),
-        avatarUrl: t.Optional(t.String())
-      })),
-      auth: t.Object({
-        provider: t.String(),
-        providerUserID: t.String(),
-        email: t.Optional(t.String())
-      }),
-      demographics: t.Optional(t.Object({
-        gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female'), t.Literal('other')])),
-        ageRange: t.Optional(t.String())
-      })),
-      questionnaire: t.Optional(t.Object({
-        vibeLevel: t.Optional(t.Integer()),
-        timeInvestmentHours: t.Optional(t.Integer()),
-        notificationsEnabled: t.Optional(t.Boolean())
-      })),
-      consent: t.Optional(t.Object({
-        tosVersion: t.Optional(t.String()),
-        privacyVersion: t.Optional(t.String()),
-        acceptedAt: t.Optional(t.String())
-      })),
-      client: t.Optional(t.Object({
-        locale: t.Optional(t.String()),
-        timezone: t.Optional(t.String()),
-        appVersion: t.Optional(t.String())
-      }))
-    })
   })
 
 
