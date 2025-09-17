@@ -21,28 +21,4 @@ export const legacyAuthRoutes = new Elysia()
       token: t.String()
     })
   })
-  .post('/apple', async ({ body, set }) => {
-    try {
-      const authResponse = await AuthService.signInWithApple({
-        idToken: body.identityToken,
-        nonce: '',
-        userIdentifier: body.identityToken
-      })
-      return { 
-        success: true, 
-        ...authResponse,
-        message: 'Apple sign in successful'
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Apple sign in failed'
-      const isAuthError = /invalid|unauthor/i.test(message)
-      set.status = isAuthError ? 401 : 500
-      return { success: false, error: message }
-    }
-  }, {
-    body: t.Object({
-      identityToken: t.String()
-    })
-  })
-
 

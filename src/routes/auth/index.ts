@@ -17,5 +17,3 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .use(signoutRoute)
   .use(verifyTokenRoute)
   .use(legacyAuthRoutes)
-
-

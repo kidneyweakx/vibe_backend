@@ -1,6 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client } from '../r2/r2Client'
-import { getPresignedGetUrl, getPublicObjectUrl } from '../r2/presign'
+import { getPresignedGetUrl, getPublicObjectUrl } from '../../services/r2/presign'
 import { handleR2Error, logError } from './errors'
 import type { R2UploadResult, UploadOptions } from '../interfaces/file'
 

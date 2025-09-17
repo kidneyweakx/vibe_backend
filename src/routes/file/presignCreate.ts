@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { getPresignedPutUrl } from './presign'
+import { getPresignedPutUrl } from '../../services/r2/presign'
 import { generatePhotoKey, getExtensionFromContentType } from './service'
 
 export const presignCreateRoute = new Elysia()

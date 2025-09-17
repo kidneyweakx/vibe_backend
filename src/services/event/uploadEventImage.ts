@@ -1,7 +1,7 @@
 import getPrisma from '../../dbConfig'
 import { getR2Client } from '../r2/r2Client'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { getPublicObjectUrl } from '../r2/presign'
+import { getPublicObjectUrl } from '../../services/r2/presign'
 import type { UploadEventParams } from '../interfaces/event'
 
 export async function uploadEventImage(params: UploadEventParams) {
