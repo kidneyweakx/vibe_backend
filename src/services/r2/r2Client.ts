@@ -1,7 +1,11 @@
 import { S3Client } from '@aws-sdk/client-s3'
 import { getEnvVar } from '../../env'
 
+let r2ClientInstance: { client: S3Client; bucketName: string; accountId: string } | null = null
+
 export const getR2Client = () => {
+  if (r2ClientInstance) return r2ClientInstance
+
   const accountId = getEnvVar('R2_ACCOUNT_ID')
   const bucketName = getEnvVar('R2_BUCKET_NAME')
   const accessKey = getEnvVar('R2_ACCESS_KEY')
@@ -22,7 +26,7 @@ export const getR2Client = () => {
     throw new Error(`Missing R2 config: ${missingFields.join(', ')}`)
   }
 
-  return {
+  r2ClientInstance = {
     client: new S3Client({
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -34,6 +38,8 @@ export const getR2Client = () => {
     bucketName: bucketName!,
     accountId: accountId!
   }
+
+  return r2ClientInstance
 }
 
 

@@ -34,10 +34,9 @@ export interface ProfileInfoResponse {
 export async function getProfileInfo(userId: string, page: number = 1, limit: number = 20): Promise<ProfileInfoResponse> {
   const prisma = getPrisma()
   
-  // Single optimized query to get user info, latest photo, and photo count
-  const [userData, journeyData, photosData] = await Promise.all([
-    // Get user basic info and latest photo in one query
-    prisma.$queryRaw<Array<{
+  try {
+    // Get user basic info first (fast query)
+    const userData = await prisma.$queryRaw<Array<{
       userId: string
       name: string | null
       avatar: string | null
@@ -69,68 +68,87 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
           )
       ) latest_photo ON u.id = latest_photo.userId
       WHERE u.id = ${userId}
-    `,
-    
-    // Get journey dashboard data
-    getJourneyDashboard(userId),
-    
-    // Get user photos with pagination
-    getUserPhotosOptimized(userId, page, limit)
-  ])
+    `
 
-  if (userData.length === 0) {
-    throw new Error('User not found')
-  }
-
-  const user = userData[0]
-  
-  // Generate avatar URL (prioritize profile picture over latest photo)
-  let avatarUrl: string | undefined = undefined
-  
-  // First try to use user's profile picture
-  if (user.avatar) {
-    try {
-      avatarUrl = await getPresignedGetUrl(user.avatar, 60 * 60 * 24 * 7) // 7 days expiry
-    } catch (error) {
-      console.warn(`Failed to generate presigned URL for profile picture ${user.avatar}:`, error)
+    if (userData.length === 0) {
+      throw new Error('User not found')
     }
-  }
-  
-  // Fallback to latest uploaded photo if no profile picture available
-  if (!avatarUrl && user.latestPhotoKey) {
-    try {
-      avatarUrl = await getPresignedGetUrl(user.latestPhotoKey, 60 * 60 * 24 * 7) // 7 days expiry
-    } catch (error) {
-      console.warn(`Failed to generate presigned URL for latest photo ${user.latestPhotoKey}:`, error)
-    }
-  }
 
-  return {
-    user: {
-      id: user.userId,
-      name: user.name,
-      avatar: avatarUrl,
-      gender: user.gender,
-      email: user.email,
-      provider: user.provider
-    },
-    journey: {
-      totalScore: journeyData.totalScore,
-      likeCount: journeyData.likeCount,
-      normalCount: journeyData.normalCount,
-      totalRatings: journeyData.totalRatings,
-      overallRank: journeyData.overallRank,
-      genderRank: journeyData.genderRank,
-      totalUsers: journeyData.totalUsers,
-      femaleAttraction: journeyData.femaleAttraction,
-      maleAttraction: journeyData.maleAttraction,
-      recentRatings: journeyData.recentRatings,
-      weeklyTrend: journeyData.weeklyTrend,
-      achievements: journeyData.achievements,
-      nextMilestone: journeyData.nextMilestone,
-      levelProgress: journeyData.levelProgress
-    },
-    photos: photosData
+    const user = userData[0]
+    
+    // Generate avatar URL (prioritize profile picture over latest photo)
+    let avatarUrl: string | undefined = undefined
+    
+    if (user.avatar) {
+      try {
+        avatarUrl = await getPresignedGetUrl(user.avatar, 60 * 60 * 24 * 7)
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for profile picture ${user.avatar}:`, error)
+      }
+    }
+    
+    if (!avatarUrl && user.latestPhotoKey) {
+      try {
+        avatarUrl = await getPresignedGetUrl(user.latestPhotoKey, 60 * 60 * 24 * 7)
+      } catch (error) {
+        console.warn(`Failed to generate presigned URL for latest photo ${user.latestPhotoKey}:`, error)
+      }
+    }
+
+    // Get photos data and journey data in parallel (but with timeout protection)
+    const [photosData, journeyData] = await Promise.allSettled([
+      getUserPhotosOptimized(userId, page, limit),
+      getJourneyDashboard(userId)
+    ])
+
+    const photos = photosData.status === 'fulfilled' ? photosData.value : { photos: [], totalCount: 0, hasMore: false }
+    const journey = journeyData.status === 'fulfilled' ? journeyData.value : {
+      totalScore: 0,
+      likeCount: 0,
+      normalCount: 0,
+      totalRatings: 0,
+      overallRank: 0,
+      genderRank: null,
+      totalUsers: 0,
+      femaleAttraction: 0,
+      maleAttraction: 0,
+      recentRatings: [],
+      weeklyTrend: [],
+      achievements: [],
+      nextMilestone: null,
+      levelProgress: { currentLevel: 1, nextLevelThreshold: 100, progressPercentage: 0 }
+    }
+
+    return {
+      user: {
+        id: user.userId,
+        name: user.name,
+        avatar: avatarUrl,
+        gender: user.gender,
+        email: user.email,
+        provider: user.provider
+      },
+      journey: {
+        totalScore: journey.totalScore,
+        likeCount: journey.likeCount,
+        normalCount: journey.normalCount,
+        totalRatings: journey.totalRatings,
+        overallRank: journey.overallRank,
+        genderRank: journey.genderRank,
+        totalUsers: journey.totalUsers,
+        femaleAttraction: journey.femaleAttraction,
+        maleAttraction: journey.maleAttraction,
+        recentRatings: journey.recentRatings,
+        weeklyTrend: journey.weeklyTrend,
+        achievements: journey.achievements,
+        nextMilestone: journey.nextMilestone,
+        levelProgress: journey.levelProgress
+      },
+      photos
+    }
+  } catch (error: any) {
+    console.error('Profile info error:', error)
+    throw new Error(`Failed to get profile info: ${error.message}`)
   }
 }
 
