@@ -46,3 +46,4 @@ dist
 /fake-data
 
 wrangler.toml
+.wrangler

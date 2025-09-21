@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { PrismaD1 } from '@prisma/adapter-d1'
 import { getEnvVar } from './env'
 
 let prismaInstance: PrismaClient | null = null
@@ -17,66 +17,38 @@ const requireEnv = (name: string): string => {
   return value
 }
 
-export const getPrisma = (): PrismaClient => {
+export const getPrisma = (env?: any): PrismaClient => {
   if (prismaInstance) return prismaInstance
-
-  // 防止並行創建多個實例
+  
   if (isConnecting) {
     throw new Error('Database connection is being established, please wait')
   }
-
+  
   isConnecting = true
-
+  
   try {
-    // Test/dev override: if DATABASE_URL is set to a SQLite URL, prefer it.
-    const databaseUrl = (typeof process !== 'undefined' ? (process.env as any)?.DATABASE_URL : undefined) as string | undefined
+    // 開發環境 SQLite 覆蓋
+    const databaseUrl = process.env?.DATABASE_URL
     if (databaseUrl && /^(file:|:memory:)/i.test(databaseUrl)) {
       prismaInstance = new PrismaClient({ 
         datasourceUrl: databaseUrl, 
-        log: ['error'],
-        // 添加連接池配置
-        __internal: {
-          engine: {
-            connectTimeout: 5000, // 5秒連接超時
-            queryTimeout: 10000,  // 10秒查詢超時
-          }
-        }
+        log: ['error']
       })
       return prismaInstance
     }
 
-    const rawUrl = requireEnv('TURSO_DATABASE_URL')
-    const authToken = requireEnv('TURSO_AUTH_TOKEN')
+    // 從全域環境獲取 env，如果沒有傳遞參數
+    const envToUse = env || (globalThis as any).__ENV
+    
+    if (!envToUse || !envToUse.DB) {
+      throw new Error('D1 database binding not found. Make sure env.DB is available.')
+    }
 
-    // Normalize: if no scheme is provided, default to libsql:// as per Turso docs
-    const hasScheme = /^(libsql|https?):\/\//i.test(rawUrl) || /^(file:|:memory:)/i.test(rawUrl)
-    const url = hasScheme ? rawUrl : `libsql://${rawUrl}`
-
-    // Best-effort diagnostics: print the effective host and scheme (do not expose token)
-    try {
-      const probe = (url.startsWith('libsql://') ? url.replace(/^libsql:\/\//i, 'https://') : url)
-      const u = new URL(probe)
-      console.error('db:client:init', { scheme: u.protocol.replace(':', ''), host: u.host })
-    } catch {}
-
-    const adapter = new PrismaLibSQL({ 
-      url, 
-      authToken,
-      // 添加連接超時設置
-      connectTimeout: 5000,
-      queryTimeout: 10000,
-    })
+    const adapter = new PrismaD1(envToUse.DB)
     
     prismaInstance = new PrismaClient({ 
       adapter, 
-      log: ['error'],
-      // 添加連接池配置
-      __internal: {
-        engine: {
-          connectTimeout: 5000,
-          queryTimeout: 10000,
-        }
-      }
+      log: ['error']
     })
     
     return prismaInstance

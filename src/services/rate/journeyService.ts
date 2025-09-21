@@ -60,125 +60,140 @@ export interface LevelProgress {
 export async function getJourneyDashboard(userId: string): Promise<JourneyDashboard> {
   const prisma = getPrisma()
   
-  // Single optimized query to get all user statistics and rankings
-  const userStats = await prisma.$queryRaw<Array<{
-    userId: string
-    name: string | null
-    gender: string | null
-    likeCount: bigint
-    normalCount: bigint
-    totalRatings: bigint
-    totalScore: number
-    overallRank: bigint
-    genderRank: bigint | null
-    totalUsers: bigint
-    femaleLikeCount: bigint
-    maleLikeCount: bigint
-    femaleNormalCount: bigint
-    maleNormalCount: bigint
-  }>>`
-    WITH user_stats AS (
-      SELECT 
-        u.id as userId,
-        u.name,
-        u.gender,
-        COALESCE(like_stats.likeCount, 0) as likeCount,
-        COALESCE(normal_stats.normalCount, 0) as normalCount,
-        COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0) as totalRatings,
-        CASE 
-          WHEN COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0) = 0 THEN 0
-          ELSE ROUND(
-            ((COALESCE(like_stats.likeCount, 0) * 1.0 + COALESCE(normal_stats.normalCount, 0) * 0.2) / 
-             (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0))) * 100
-          )
-        END as totalScore
-      FROM users u
-      LEFT JOIN (
-        SELECT ratedUserId, COUNT(*) as likeCount
-        FROM ratings 
-        WHERE type = 'like' AND ratedUserId NOT LIKE 'guest%'
-        GROUP BY ratedUserId
-      ) like_stats ON u.id = like_stats.ratedUserId
-      LEFT JOIN (
-        SELECT ratedUserId, COUNT(*) as normalCount
-        FROM ratings 
-        WHERE type = 'normal' AND ratedUserId NOT LIKE 'guest%'
-        GROUP BY ratedUserId
-      ) normal_stats ON u.id = normal_stats.ratedUserId
-      WHERE u.id = ${userId}
-    ),
-    rankings AS (
-      SELECT 
-        us.*,
-        ROW_NUMBER() OVER (ORDER BY us.totalScore DESC) as overallRank,
-        ROW_NUMBER() OVER (PARTITION BY us.gender ORDER BY us.totalScore DESC) as genderRank,
-        (SELECT COUNT(*) FROM users WHERE id NOT LIKE 'guest%') as totalUsers
-      FROM user_stats us
-    ),
-    gender_attraction AS (
-      SELECT 
-        r.*,
-        COALESCE(female_likes.likeCount, 0) as femaleLikeCount,
-        COALESCE(male_likes.likeCount, 0) as maleLikeCount,
-        COALESCE(female_normals.normalCount, 0) as femaleNormalCount,
-        COALESCE(male_normals.normalCount, 0) as maleNormalCount
-      FROM rankings r
-      LEFT JOIN (
-        SELECT 
-          r.ratedUserId,
-          COUNT(*) as likeCount
-        FROM ratings r
-        JOIN users u ON r.raterId = u.id
-        WHERE r.type = 'like' AND u.gender = 'female' AND r.ratedUserId = ${userId}
-        GROUP BY r.ratedUserId
-      ) female_likes ON r.userId = female_likes.ratedUserId
-      LEFT JOIN (
-        SELECT 
-          r.ratedUserId,
-          COUNT(*) as likeCount
-        FROM ratings r
-        JOIN users u ON r.raterId = u.id
-        WHERE r.type = 'like' AND u.gender = 'male' AND r.ratedUserId = ${userId}
-        GROUP BY r.ratedUserId
-      ) male_likes ON r.userId = male_likes.ratedUserId
-      LEFT JOIN (
-        SELECT 
-          r.ratedUserId,
-          COUNT(*) as normalCount
-        FROM ratings r
-        JOIN users u ON r.raterId = u.id
-        WHERE r.type = 'normal' AND u.gender = 'female' AND r.ratedUserId = ${userId}
-        GROUP BY r.ratedUserId
-      ) female_normals ON r.userId = female_normals.ratedUserId
-      LEFT JOIN (
-        SELECT 
-          r.ratedUserId,
-          COUNT(*) as normalCount
-        FROM ratings r
-        JOIN users u ON r.raterId = u.id
-        WHERE r.type = 'normal' AND u.gender = 'male' AND r.ratedUserId = ${userId}
-        GROUP BY r.ratedUserId
-      ) male_normals ON r.userId = male_normals.ratedUserId
-    )
-    SELECT * FROM gender_attraction
-  `
+  // Get basic user info
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, gender: true }
+  })
 
-  if (userStats.length === 0) {
+  if (!user) {
     throw new Error('User not found')
   }
 
-  const stats = userStats[0]
+  // Get user's rating counts
+  const [likeCount, normalCount] = await Promise.all([
+    prisma.rating.count({
+      where: { 
+        ratedUserId: userId,
+        type: 'like'
+      }
+    }),
+    prisma.rating.count({
+      where: { 
+        ratedUserId: userId,
+        type: 'normal'
+      }
+    })
+  ])
+
+  const totalRatings = likeCount + normalCount
+  const totalScore = totalRatings > 0 
+    ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalRatings) * 100)
+    : 0
+
+  // Get overall ranking
+  const overallRankResult = await prisma.$queryRaw<Array<{ rank: bigint }>>`
+    SELECT COUNT(*) + 1 as rank
+    FROM users u
+    LEFT JOIN (
+      SELECT 
+        ratedUserId,
+        COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
+        COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
+      FROM ratings 
+      WHERE ratedUserId NOT LIKE 'guest%'
+      GROUP BY ratedUserId
+    ) r ON u.id = r.ratedUserId
+    WHERE u.id NOT LIKE 'guest%' 
+      AND u.id != ${userId}
+      AND (
+        CASE 
+          WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
+          ELSE ROUND(
+            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) / 
+             (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
+          )
+        END
+      ) > ${totalScore}
+  `
+
+  // Get gender ranking
+  const genderRankResult = user.gender ? await prisma.$queryRaw<Array<{ rank: bigint }>>`
+    SELECT COUNT(*) + 1 as rank
+    FROM users u
+    LEFT JOIN (
+      SELECT 
+        ratedUserId,
+        COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
+        COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
+      FROM ratings 
+      WHERE ratedUserId NOT LIKE 'guest%'
+      GROUP BY ratedUserId
+    ) r ON u.id = r.ratedUserId
+    WHERE u.id NOT LIKE 'guest%' 
+      AND u.id != ${userId}
+      AND u.gender = ${user.gender}
+      AND (
+        CASE 
+          WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
+          ELSE ROUND(
+            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) / 
+             (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
+          )
+        END
+      ) > ${totalScore}
+  ` : [{ rank: BigInt(0) }]
+
+  // Get total user count
+  const totalUsersResult = await prisma.user.count({
+    where: { id: { not: { startsWith: 'guest' } } }
+  })
+
+  // Get gender-specific attraction data
+  const [femaleLikeCount, maleLikeCount, femaleNormalCount, maleNormalCount] = await Promise.all([
+    prisma.rating.count({
+      where: {
+        ratedUserId: userId,
+        type: 'like',
+        rater: { gender: 'female' }
+      }
+    }),
+    prisma.rating.count({
+      where: {
+        ratedUserId: userId,
+        type: 'like',
+        rater: { gender: 'male' }
+      }
+    }),
+    prisma.rating.count({
+      where: {
+        ratedUserId: userId,
+        type: 'normal',
+        rater: { gender: 'female' }
+      }
+    }),
+    prisma.rating.count({
+      where: {
+        ratedUserId: userId,
+        type: 'normal',
+        rater: { gender: 'male' }
+      }
+    })
+  ])
+
+  const overallRank = Number(overallRankResult[0]?.rank || 1)
+  const genderRank = user.gender ? Number(genderRankResult[0]?.rank || 1) : null
   
   // Calculate gender attraction scores
-  const femaleTotal = Number(stats.femaleLikeCount) + Number(stats.femaleNormalCount)
-  const maleTotal = Number(stats.maleLikeCount) + Number(stats.maleNormalCount)
+  const femaleTotal = femaleLikeCount + femaleNormalCount
+  const maleTotal = maleLikeCount + maleNormalCount
   
   const femaleAttraction = femaleTotal > 0 
-    ? ((Number(stats.femaleLikeCount) * 1.0 + Number(stats.femaleNormalCount) * 0.2) / femaleTotal) * 100
+    ? ((femaleLikeCount * 1.0 + femaleNormalCount * 0.2) / femaleTotal) * 100
     : 0
     
   const maleAttraction = maleTotal > 0
-    ? ((Number(stats.maleLikeCount) * 1.0 + Number(stats.maleNormalCount) * 0.2) / maleTotal) * 100
+    ? ((maleLikeCount * 1.0 + maleNormalCount * 0.2) / maleTotal) * 100
     : 0
 
   // Get recent ratings (last 10)
@@ -193,57 +208,59 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
     take: 10
   })
 
-  // Get weekly trend (last 7 days)
-  const weeklyTrend = await prisma.$queryRaw<Array<{
-    date: string
-    score: number
-    ratingCount: bigint
-  }>>`
-    WITH date_series AS (
-      SELECT date('now', '-' || (row_number() OVER (ORDER BY 1) - 1) || ' days') as date
-      FROM (SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7)
-    ),
-    daily_ratings AS (
-      SELECT 
-        DATE(r.createdAt) as date,
-        COUNT(CASE WHEN r.type = 'like' THEN 1 END) as likeCount,
-        COUNT(CASE WHEN r.type = 'normal' THEN 1 END) as normalCount,
-        COUNT(*) as ratingCount
-      FROM ratings r
-      WHERE r.ratedUserId = ${userId}
-        AND DATE(r.createdAt) >= date('now', '-7 days')
-      GROUP BY DATE(r.createdAt)
-    )
-    SELECT 
-      ds.date,
-      CASE 
-        WHEN dr.ratingCount = 0 THEN 0
-        ELSE ROUND(((dr.likeCount * 1.0 + dr.normalCount * 0.2) / dr.ratingCount) * 100, 2)
-      END as score,
-      COALESCE(dr.ratingCount, 0) as ratingCount
-    FROM date_series ds
-    LEFT JOIN daily_ratings dr ON ds.date = dr.date
-    ORDER BY ds.date
-  `
+  // Get weekly trend (last 7 days) - simplified approach
+  const weeklyTrend: DailyScore[] = []
+  const today = new Date()
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    const dateStr = date.toISOString().split('T')[0]
+    
+    // Get ratings for this specific date
+    const dayRatings = await prisma.rating.findMany({
+      where: {
+        ratedUserId: userId,
+        createdAt: {
+          gte: new Date(dateStr + 'T00:00:00.000Z'),
+          lt: new Date(dateStr + 'T23:59:59.999Z')
+        }
+      }
+    })
+    
+    const likeCount = dayRatings.filter(r => r.type === 'like').length
+    const normalCount = dayRatings.filter(r => r.type === 'normal').length
+    const totalCount = dayRatings.length
+    
+    const score = totalCount > 0 
+      ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalCount) * 100 * 100) / 100
+      : 0
+    
+    weeklyTrend.push({
+      date: dateStr,
+      score,
+      ratingCount: totalCount
+    })
+  }
 
   // Generate achievements based on user stats
-  const achievements = generateAchievements(Number(stats.totalRatings), Number(stats.likeCount), Number(stats.totalScore))
+  const achievements = generateAchievements(totalRatings, likeCount, totalScore)
   
   // Generate next milestone
-  const nextMilestone = generateNextMilestone(Number(stats.totalRatings), Number(stats.likeCount))
+  const nextMilestone = generateNextMilestone(totalRatings, likeCount)
   
   // Calculate level progress
-  const levelProgress = calculateLevelProgress(Number(stats.totalScore))
+  const levelProgress = calculateLevelProgress(totalScore)
 
   return {
-    userId: stats.userId,
-    totalScore: Number(stats.totalScore),
-    likeCount: Number(stats.likeCount),
-    normalCount: Number(stats.normalCount),
-    totalRatings: Number(stats.totalRatings),
-    overallRank: Number(stats.overallRank),
-    genderRank: stats.genderRank ? Number(stats.genderRank) : null,
-    totalUsers: Number(stats.totalUsers),
+    userId: user.id,
+    totalScore,
+    likeCount,
+    normalCount,
+    totalRatings,
+    overallRank,
+    genderRank,
+    totalUsers: totalUsersResult,
     femaleAttraction,
     maleAttraction,
     recentRatings: recentRatings.map(r => ({
@@ -253,11 +270,7 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
       raterName: r.rater.name,
       raterGender: r.rater.gender
     })),
-    weeklyTrend: weeklyTrend.map(t => ({
-      date: t.date,
-      score: t.score,
-      ratingCount: Number(t.ratingCount)
-    })),
+    weeklyTrend,
     achievements,
     nextMilestone,
     levelProgress
