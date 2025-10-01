@@ -1,0 +1,52 @@
+config:
+  target: 'https://vibe-backend2.kidneyweakx.workers.dev'
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 60
+      arrivalRate: 20
+      name: "Light load"
+    - duration: 60
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 30
+      arrivalRate: 80
+      name: "Peak load"
+    - duration: 30
+      arrivalRate: 5
+      name: "Cool down"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      X-Access-Token: 'vibe_api_2025_secure_token_8f9a2b3c4d5e6f7g8h9i0j1k2l3m4n5o'
+
+scenarios:
+  - name: "Read-Only Operations"
+    weight: 80
+    flow:
+      - get:
+          url: "/api/info/home"
+          name: "GET Home Info"
+
+      - get:
+          url: "/api/tags/all"
+          name: "GET All Tags"
+
+      - get:
+          url: "/api/event/list"
+          name: "GET Event List"
+
+  - name: "Random Photos"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/rate/random-photos?limit=10"
+          name: "GET Random Photos (anonymous)"
+
+  - name: "Health Check"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/info/home"
+          name: "GET Home Info Health"

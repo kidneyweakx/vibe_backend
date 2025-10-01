@@ -1,0 +1,46 @@
+config:
+  target: 'http://localhost:8181'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 100
+      name: "Peak load"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      X-Access-Token: 'test-token'
+  processor: "./test/load-test-processor.js"
+
+scenarios:
+  - name: "Read-Heavy Workload"
+    weight: 70
+    flow:
+      - get:
+          url: "/api/info/home"
+          name: "GET Home Info"
+
+      - get:
+          url: "/api/tags/all"
+          name: "GET All Tags"
+
+      - get:
+          url: "/api/rate/random-photos?userId={{ userId }}&limit=5"
+          name: "GET Random Photos"
+          beforeRequest: "setUserId"
+
+  - name: "Write-Heavy Workload"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/rate/photo"
+          name: "POST Rate Photo"
+          json:
+            raterId: "{{ raterId }}"
+            photoId: "{{ photoId }}"
+            type: "{{ rateType }}"
+          beforeRequest: "setRateData"

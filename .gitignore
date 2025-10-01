@@ -47,3 +47,16 @@ dist
 
 wrangler.toml
 .wrangler
+
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+prisma/dev.db
+prisma/test.db
+
+# Test reports
+test/*-report.json
+test/*-report.html
+test/load-test-report.*
