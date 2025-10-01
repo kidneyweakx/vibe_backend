@@ -1,0 +1,47 @@
+config:
+  target: 'http://localhost:8181'
+  phases:
+    # Long duration test with moderate load
+    - duration: 600  # 10 minutes
+      arrivalRate: 10
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: "Endurance Test"
+    weight: 100
+    flow:
+      - get:
+          url: "/api/file/test"
+          name: "File API Test"
+      
+      - get:
+          url: "/api/rate/random-photos"
+          name: "Get Random Photos"
+      
+      - post:
+          url: "/api/rate/photo"
+          name: "Rate Photo"
+          json:
+            raterId: "endurance-rater-{{ $randomString() }}"
+            photoId: "endurance-photo-{{ $randomString() }}"
+            type: "like"
+      
+      - get:
+          url: "/api/tags/all"
+          name: "Get All Tags"
+      
+      - get:
+          url: "/api/info/home"
+          name: "Get Home Info"
+      
+      - get:
+          url: "/api/user/profile/user-{{ $randomString() }}"
+          name: "Get Random User Profile"
+      
+      # Wait a bit between requests
+      - think: 1

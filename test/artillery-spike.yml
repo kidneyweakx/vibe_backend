@@ -1,0 +1,46 @@
+config:
+  target: 'http://localhost:8181'
+  phases:
+    # Normal load
+    - duration: 30
+      arrivalRate: 5
+    # Sudden spike
+    - duration: 10
+      arrivalRate: 200
+    # Back to normal
+    - duration: 30
+      arrivalRate: 5
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: "Spike Test"
+    weight: 100
+    flow:
+      - get:
+          url: "/api/file/test"
+          name: "File API Test"
+      
+      - get:
+          url: "/api/rate/random-photos"
+          name: "Get Random Photos"
+      
+      - post:
+          url: "/api/rate/photo"
+          name: "Rate Photo"
+          json:
+            raterId: "spike-rater-{{ $randomString() }}"
+            photoId: "spike-photo-{{ $randomString() }}"
+            type: "like"
+      
+      - get:
+          url: "/api/tags/all"
+          name: "Get All Tags"
+      
+      - get:
+          url: "/api/info/home"
+          name: "Get Home Info"

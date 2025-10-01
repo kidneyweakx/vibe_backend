@@ -1,12 +1,10 @@
 [test]
-# 測試配置
 timeout = 30000
 coverage = true
 
-# 測試環境變量
 [test.env]
 NODE_ENV = "test"
-DATABASE_URL = "file:./test.db"
+DATABASE_URL = "file:test.db"
+API_ACCESS_TOKEN = "test-token"
 
-# 預載入測試設置
-preload = ["./tests/setup.ts"]
+preload = ["./test/setup.ts"]

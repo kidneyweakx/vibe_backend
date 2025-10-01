@@ -1,0 +1,81 @@
+config:
+  target: 'http://localhost:8181'
+  phases:
+    # Warm up phase
+    - duration: 30
+      arrivalRate: 1
+    # Ramp up phase
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 20
+    # Sustained load phase
+    - duration: 120
+      arrivalRate: 20
+    # Peak load phase
+    - duration: 60
+      arrivalRate: 50
+    # Cool down phase
+    - duration: 30
+      arrivalRate: 5
+      rampTo: 1
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+
+scenarios:
+  - name: "API Load Test"
+    weight: 100
+    flow:
+      # Test basic endpoints
+      - get:
+          url: "/api/file/test"
+          name: "File API Test"
+      
+      - get:
+          url: "/api/user/profile/test-user-id"
+          name: "Get User Profile"
+      
+      - get:
+          url: "/api/rate/random-photos"
+          name: "Get Random Photos"
+      
+      - get:
+          url: "/api/tags/all"
+          name: "Get All Tags"
+      
+      - get:
+          url: "/api/info/home"
+          name: "Get Home Info"
+      
+      # Test POST endpoints with sample data
+      - post:
+          url: "/api/rate/photo"
+          name: "Rate Photo"
+          json:
+            raterId: "test-rater-{{ $randomString() }}"
+            photoId: "test-photo-{{ $randomString() }}"
+            type: "like"
+      
+      - post:
+          url: "/api/auth/google/verify"
+          name: "Google Auth Verify"
+          json:
+            idToken: "fake-token-{{ $randomString() }}"
+            accessToken: "fake-access-token-{{ $randomString() }}"
+      
+      # Test with different user IDs
+      - get:
+          url: "/api/user/profile/user-{{ $randomString() }}"
+          name: "Get Random User Profile"
+      
+      # Test rate photo with different types
+      - post:
+          url: "/api/rate/photo"
+          name: "Rate Photo Normal"
+          json:
+            raterId: "rater-{{ $randomString() }}"
+            photoId: "photo-{{ $randomString() }}"
+            type: "normal"

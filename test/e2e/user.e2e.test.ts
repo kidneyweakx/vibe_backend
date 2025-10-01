@@ -1,0 +1,118 @@
+import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
+import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
+import { apiGet, apiPut, apiDelete, expectSuccess, expectError } from '../helpers/api'
+
+describe('User E2E', () => {
+  beforeEach(async () => {
+    await cleanDatabase()
+  })
+
+  afterAll(async () => {
+    await closeDatabase()
+  })
+
+  describe('GET /api/user/profile/:id', () => {
+    test('returns user profile', async () => {
+      const user = await createTestUser({
+        email: 'profile@example.com',
+        name: 'Profile User'
+      })
+
+      const response = await apiGet(`/user/profile/${user.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.id).toBe(user.id)
+      expect(data.data.email).toBe('profile@example.com')
+      expect(data.data.name).toBe('Profile User')
+    })
+
+    test('returns 404 for nonexistent user', async () => {
+      const response = await apiGet('/user/profile/nonexistent')
+      await expectError(response, 404)
+    })
+  })
+
+  describe('PUT /api/user/profile/:id', () => {
+    test('updates user profile', async () => {
+      const user = await createTestUser({
+        email: 'update@example.com',
+        name: 'Original Name'
+      })
+
+      const response = await apiPut(`/user/profile/${user.id}`, {
+        name: 'Updated Name',
+        bio: 'My bio',
+        location: 'San Francisco'
+      })
+
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.name).toBe('Updated Name')
+      expect(data.data.bio).toBe('My bio')
+      expect(data.data.location).toBe('San Francisco')
+    })
+
+    test('fails with invalid user ID', async () => {
+      const response = await apiPut('/user/profile/invalid', {
+        name: 'Test'
+      })
+
+      await expectError(response, 400)
+    })
+  })
+
+  describe('GET /api/user/info/:id', () => {
+    test('returns public user info with photo count', async () => {
+      const user = await createTestUser({
+        email: 'info@example.com',
+        name: 'Info User'
+      })
+
+      // Add some photos
+      await createTestPhoto({ userId: user.id, key: 'test/1.jpg' })
+      await createTestPhoto({ userId: user.id, key: 'test/2.jpg' })
+
+      const response = await apiGet(`/user/info/${user.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.id).toBe(user.id)
+      expect(data.data.name).toBe('Info User')
+      expect(data.data.photoCount).toBe(2)
+    })
+  })
+
+  describe('GET /api/user/share/:id', () => {
+    test('generates shareable link', async () => {
+      const user = await createTestUser({
+        email: 'share@example.com'
+      })
+
+      const response = await apiGet(`/user/share/${user.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.userId).toBe(user.id)
+      expect(data.data.shareUrl).toContain(user.id)
+    })
+  })
+
+  describe('GET /api/user/qr/:id', () => {
+    test('generates QR code data', async () => {
+      const user = await createTestUser({
+        email: 'qr@example.com',
+        name: 'QR User'
+      })
+
+      const response = await apiGet(`/user/qr/${user.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.qrText).toBeDefined()
+      expect(data.data.displayUrl).toContain(user.id)
+      expect(data.data.userName).toBe('QR User')
+    })
+  })
+})
