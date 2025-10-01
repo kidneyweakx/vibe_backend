@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { getRankingList } from '../../services/rate'
 
 export const adminRankingsRoute = new Elysia()
+  // Get rankings (admin) - Read-only, available on Cloudflare
   .get('/rankings', async ({ query, set }) => {
     try {
       const limit = parseInt(query.limit as string) || 20

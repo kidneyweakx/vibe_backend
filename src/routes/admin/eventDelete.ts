@@ -1,7 +1,9 @@
 import { Elysia, t } from 'elysia'
+import { requireWritePermission } from '../../middlewares/admin'
 import { deleteEvent } from '../../services/event'
 
 export const adminEventDeleteRoute = new Elysia()
+  .use(requireWritePermission)
   .delete('/events/:eventId', async ({ params, set }) => {
     try {
       const { eventId } = params as { eventId: string }

@@ -1,7 +1,9 @@
 import { Elysia, t } from 'elysia'
+import { requireWritePermission } from '../../middlewares/admin'
 import { uploadEventImage } from '../../services/event'
 
 export const adminEventUploadRoute = new Elysia()
+  .use(requireWritePermission)
   .post('/events', async ({ body, set }) => {
     try {
       const { title, description, imageBase64, startsAt, endsAt } = body as {
