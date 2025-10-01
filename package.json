@@ -20,7 +20,13 @@
     "fake:event": "bun run fake-data/import.ts --events-only",
     "fake:event:clear": "bun run fake-data/import.ts --events-only --events-clear",
     "test:seed": "bun run tests/seedFakeData.ts",
-    "test:presign": "bun run scripts/test-presign.ts"
+    "test:presign": "bun run scripts/test-presign.ts",
+    "load-test": "bun run test/run-tests.ts load",
+    "load-test:stress": "bun run test/run-tests.ts stress",
+    "load-test:spike": "bun run test/run-tests.ts spike",
+    "load-test:endurance": "bun run test/run-tests.ts endurance",
+    "load-test:quick": "bun run test/quick-test.ts",
+    "load-test:monitor": "bun run test/monitor.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",
@@ -38,6 +44,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "artillery": "^2.0.25",
     "bun-types": "latest",
     "wrangler": "^4.28.1"
   },

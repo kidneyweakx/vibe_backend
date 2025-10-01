@@ -12,7 +12,6 @@ import { reportRoute } from './report'
 export const fileModule = new Elysia({ prefix: '/file' })
   .use(uploadRoute)
   .use(deleteFileRoute)
-  .get('/test', () => ({ success: true, message: 'File API is working' }))
   .use(photosUploadRoute)
   .use(presignCreateRoute)
   .use(photosCompleteRoute)

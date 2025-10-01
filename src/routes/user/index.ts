@@ -4,7 +4,6 @@ import { getInfoRoute } from './getInfo'
 import { updateProfileRoute } from './updateProfile'
 import { getShareRoute } from './getShare'
 import { getQrRoute } from './getQr'
-import { createTestUserRoute } from './createTest'
 import { legacyUserRoutes } from './legacy'
 import { profilePictureRoute } from './profilePicture'
 import { userPreferencesRoute } from './preferences'
@@ -16,7 +15,6 @@ export const userRoutes = new Elysia({ prefix: '/user' })
   .use(updateProfileRoute)
   .use(getShareRoute)
   .use(getQrRoute)
-  .use(createTestUserRoute)
   .use(legacyUserRoutes)
   .use(profilePictureRoute)
   .use(userPreferencesRoute)

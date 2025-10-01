@@ -24,7 +24,6 @@ export async function getRandomPhotosForRating(userId: string, limit: number = 1
   const startTime = Date.now();
   const requestKey = `random-photos-${userId}-${limit}`
   
-  // 檢查是否有相同的請求正在進行
   if (requestQueue.has(requestKey)) {
     logger.info('Request already in progress, waiting for result', { userId, limit })
     return await requestQueue.get(requestKey)
@@ -37,7 +36,6 @@ export async function getRandomPhotosForRating(userId: string, limit: number = 1
     const result = await requestPromise
     return result
   } finally {
-    // 清理隊列
     requestQueue.delete(requestKey)
   }
 }
@@ -46,7 +44,6 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
   logger.info('Starting random photos fetch', { userId, limit });
   
   try {
-    // 添加數據庫查詢超時保護
     const dbTimeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Database query timeout after 10 seconds')), 10000);
     });
@@ -126,7 +123,6 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
           key: photo.key,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
-        // 使用公開 URL 作為回退
         withSignedUrl.push({
           ...photo,
           url: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${photo.key}`
