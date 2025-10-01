@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { UserService } from './service'
+import { UserService } from '../../services/user/serviceAdapter'
 
 export const updateProfileRoute = new Elysia()
   .put('/profile/:id', async ({ params: { id }, body, set }) => {

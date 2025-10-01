@@ -1,13 +1,12 @@
 import { Elysia, t } from 'elysia'
-import { TagService } from './service'
 import getPrisma from '../../dbConfig'
 import { requireAuth } from '../../middlewares/auth'
+import { addTagsToPhoto } from '../../services/tag'
 
 export const addPhotoTagsRoute = new Elysia()
   .use(requireAuth)
   .post('/photos/:photoId', async (ctx) => {
     const { params, body, user, set } = ctx as any
-    const tagService = new TagService(getPrisma())
     try {
       const photo = await getPrisma().photo.findFirst({
         where: { id: params.photoId, userId: user.id }
@@ -16,7 +15,7 @@ export const addPhotoTagsRoute = new Elysia()
         set.status = 404
         return { success: false, error: '照片不存在或無權限' }
       }
-      await tagService.addTagsToPhoto(params.photoId, (body as any).tagIds)
+      await addTagsToPhoto(getPrisma(), params.photoId, (body as any).tagIds)
       return { success: true, message: '標籤添加成功' }
     } catch (error) {
       console.error('添加標籤失敗:', error)

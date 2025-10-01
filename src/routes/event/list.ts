@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { listEvents } from './service'
+import { listEvents } from '../../services/event'
 
 export const eventListRoute = new Elysia()
   .get('/list', async ({ set, query }) => {

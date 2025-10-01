@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { UserService } from './service'
+import { UserService } from '../../services/user/serviceAdapter'
 
 export const getShareRoute = new Elysia()
   .get('/share/:id', async ({ params: { id }, set }) => {

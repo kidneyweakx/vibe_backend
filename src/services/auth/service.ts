@@ -1,4 +1,4 @@
-import { UserService } from '../../routes/user/service'
+import { UserService } from '../user/serviceAdapter'
 import { getEnvVar } from '../../env'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'

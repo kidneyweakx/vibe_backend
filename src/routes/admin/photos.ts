@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { getAllPhotos, deletePhoto, aggregateReportedPhotos, listAllReports } from '../file/service'
+import { getAllPhotos, deletePhoto, aggregateReportedPhotos, listAllReports } from '../../services/file'
 
 export const adminPhotosRoute = new Elysia()
   // List all photos (admin)

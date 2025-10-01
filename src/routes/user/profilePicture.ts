@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { uploadProfilePicture } from './service'
+import { uploadProfilePicture } from '../../services/user/profilePicture'
 
 export const profilePictureRoute = new Elysia()
   .post('/profilePicture', async ({ body, set }) => {

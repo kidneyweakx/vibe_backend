@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { UserService } from '../user/service'
+import { UserService } from '../../services/user/serviceAdapter'
 import { AuthService } from '../../services/auth/service'
 
 export const profileCreateRoute = new Elysia()

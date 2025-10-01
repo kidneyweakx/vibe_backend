@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { UserService } from './service'
+import { UserService } from '../../services/user/serviceAdapter'
 
 export const getQrRoute = new Elysia()
   .get('/qr/:id', async ({ params: { id }, set }) => {

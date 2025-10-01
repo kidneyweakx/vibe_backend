@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { confirmPhotoUpload, getExtensionFromContentType } from './service'
+import { confirmPhotoUpload, getExtensionFromContentType } from '../../services/file'
 
 export const photosCompleteRoute = new Elysia()
   .post('/photos/complete', async ({ body, set }) => {

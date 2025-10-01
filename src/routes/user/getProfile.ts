@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { UserService } from './service'
+import { UserService } from '../../services/user/serviceAdapter'
 
 export const getProfileRoute = new Elysia()
   .get('/profile/:id', async ({ params: { id }, set }) => {

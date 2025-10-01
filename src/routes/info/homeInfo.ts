@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
-import { getRankingList } from '../rate/service'
-import { listEvents } from '../event/service'
+import { getRankingList } from '../../services/rate'
+import { listEvents } from '../../services/event'
 
 export const homeInfoRoute = new Elysia()
   .get('/homeInfo', async ({ set }) => {

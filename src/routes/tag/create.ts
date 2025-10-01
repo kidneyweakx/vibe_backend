@@ -1,12 +1,11 @@
 import { Elysia, t } from 'elysia'
-import { TagService } from './service'
 import getPrisma from '../../dbConfig'
+import { createTag } from '../../services/tag'
 
 export const createTagRoute = new Elysia()
   .post('/', async ({ body, set }) => {
-    const tagService = new TagService(getPrisma())
     try {
-      const tag = await tagService.createTag(body as any)
+      const tag = await createTag(getPrisma(), body as any)
       return { success: true, data: tag }
     } catch (error) {
       console.error('創建標籤失敗:', error)

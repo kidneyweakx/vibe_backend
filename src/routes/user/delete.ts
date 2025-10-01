@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import getPrisma from '../../dbConfig'
 import { requireAuth } from '../../middlewares/auth'
-import { deleteFile } from '../file/service'
+import { deleteFile } from '../../services/file'
 
 export const deleteAccountRoute = new Elysia()
   .use(requireAuth)

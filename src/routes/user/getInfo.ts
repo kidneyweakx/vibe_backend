@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { UserService } from './service'
+import { UserService } from '../../services/user/serviceAdapter'
 
 export const getInfoRoute = new Elysia()
   .get('/info/:id', async ({ params: { id }, set }) => {

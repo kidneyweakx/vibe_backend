@@ -1,1 +1,0 @@
-export { ratePhoto, getUserStats, getRankingList, getRandomPhotosForRating } from '../../services/rate'

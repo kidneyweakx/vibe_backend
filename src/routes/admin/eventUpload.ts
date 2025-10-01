@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { uploadEventImage } from '../event/service'
+import { uploadEventImage } from '../../services/event'
 
 export const adminEventUploadRoute = new Elysia()
   .post('/events', async ({ body, set }) => {

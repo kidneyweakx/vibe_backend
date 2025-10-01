@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { getRandomPhotosForRating } from './service'
+import { getRandomPhotosForRating } from '../../services/rate'
 
 // Create logger for this module
 const logger = {

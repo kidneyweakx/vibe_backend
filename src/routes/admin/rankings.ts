@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { getRankingList } from '../rate/service'
+import { getRankingList } from '../../services/rate'
 
 export const adminRankingsRoute = new Elysia()
   .get('/rankings', async ({ query, set }) => {

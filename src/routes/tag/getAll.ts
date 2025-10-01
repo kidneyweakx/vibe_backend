@@ -1,14 +1,13 @@
 import { Elysia, t } from 'elysia'
-import { TagService } from './service'
 import getPrisma from '../../dbConfig'
+import { getAllTags, getTagsByCategory } from '../../services/tag'
 
 export const getAllTagsRoute = new Elysia()
   .get('/', async ({ query, set }) => {
-    const tagService = new TagService(getPrisma())
     try {
       const tags = query.category
-        ? await tagService.getTagsByCategory(query.category as string)
-        : await tagService.getAllTags()
+        ? await getTagsByCategory(getPrisma(), query.category as string)
+        : await getAllTags(getPrisma())
       return { success: true, data: tags }
     } catch (error) {
       console.error('獲取標籤失敗:', error)

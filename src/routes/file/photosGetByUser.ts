@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { getUserPhotos } from './service'
+import { getUserPhotos } from '../../services/file'
 
 export const photosGetByUserRoute = new Elysia()
   .get('/photos/user/:userId', async ({ params, query }) => {

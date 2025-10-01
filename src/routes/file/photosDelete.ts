@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { deletePhoto } from './service'
+import { deletePhoto } from '../../services/file'
 
 export const photosDeleteRoute = new Elysia()
   .delete('/photos/:photoId', async ({ params, set }) => {

@@ -1,17 +1,17 @@
 import { Elysia, t } from 'elysia'
-import { TagService } from './service'
 import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../../services/r2/presign'
+import { getPhotosByTags } from '../../services/tag'
 
 export const searchPhotosByTagsRoute = new Elysia()
   .get('/search', async ({ query, set }) => {
-    const tagService = new TagService(getPrisma())
     if (!(query as any).tagIds || (query as any).tagIds.length === 0) {
       set.status = 400
       return { success: false, error: '請選擇至少一個標籤' }
     }
     try {
-      const photos = await tagService.getPhotosByTags(
+      const photos = await getPhotosByTags(
+        getPrisma(),
         (query as any).tagIds,
         (query as any).limit || 20,
         (query as any).offset || 0

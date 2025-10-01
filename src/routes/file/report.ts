@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { createReport } from './service'
+import { createReport } from '../../services/file'
 
 export const reportRoute = new Elysia()
   .post('/report', async ({ body, set }) => {
