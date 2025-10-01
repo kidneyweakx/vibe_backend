@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { requireAuth } from '../../middlewares/auth'
 import { getProfileRoute } from './getProfile'
 import { getInfoRoute } from './getInfo'
 import { updateProfileRoute } from './updateProfile'
@@ -8,10 +9,14 @@ import { profilePictureRoute } from './profilePicture'
 import { deleteAccountRoute } from './delete'
 
 export const userRoutes = new Elysia({ prefix: '/user' })
-  .use(getProfileRoute)
-  .use(getInfoRoute)
-  .use(updateProfileRoute)
-  .use(getShareRoute)
-  .use(getQrRoute)
-  .use(profilePictureRoute)
-  .use(deleteAccountRoute)
+  // Public routes (no auth required)
+  .use(getInfoRoute) // GET /info/:id - Public profile info
+
+  // Protected routes (auth required)
+  .use(requireAuth)
+  .use(getProfileRoute) // GET /profile/:id - Full profile (own only)
+  .use(updateProfileRoute) // PUT /profile/:id - Update own profile
+  .use(getShareRoute) // GET /share/:userId - Generate share link
+  .use(getQrRoute) // GET /qr/:userId - Generate QR code
+  .use(profilePictureRoute) // POST /profile-picture - Upload profile pic
+  .use(deleteAccountRoute) // DELETE /account - Delete own account

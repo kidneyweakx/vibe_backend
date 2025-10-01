@@ -2,21 +2,22 @@ import { Elysia, t } from 'elysia'
 import { ratePhoto } from '../../services/rate'
 
 export const ratePhotoRoute = new Elysia()
-  .post('/photo', async ({ body, set }) => {
+  .post('/photo', async ({ body, user, set }: any) => {
     try {
-      const { raterId, photoId, type } = body as { raterId: string; photoId: string; type: 'like' | 'normal' }
-      if (!raterId || !photoId || !type) {
+      const { photoId, type } = body as { photoId: string; type: 'like' | 'normal' }
+      if (!photoId || !type) {
         set.status = 400
-        return { success: false, error: 'raterId, photoId and type are required' }
+        return { success: false, error: 'photoId and type are required' }
       }
-      const result = await ratePhoto(raterId, photoId, type)
+      // Use authenticated user's ID as rater
+      const result = await ratePhoto(user.id, photoId, type)
       return result
     } catch (error: any) {
       set.status = 400
       return { success: false, error: error.message }
     }
   }, {
-    body: t.Object({ raterId: t.String(), photoId: t.String(), type: t.Union([t.Literal('like'), t.Literal('normal')]) })
+    body: t.Object({ photoId: t.String(), type: t.Union([t.Literal('like'), t.Literal('normal')]) })
   })
 
 

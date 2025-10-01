@@ -2,14 +2,15 @@ import { Elysia, t } from 'elysia'
 import { uploadPhoto } from '../../services/file'
 
 export const photosUploadRoute = new Elysia()
-  .post('/photos/upload', async ({ body, set }) => {
+  .post('/photos/upload', async ({ body, user, set }: any) => {
     try {
-      const { userId, imageData, format } = body as { userId: string; imageData: string; format?: string }
-      if (!userId || !imageData) {
+      const { imageData, format } = body as { imageData: string; format?: string }
+      if (!imageData) {
         set.status = 400
-        return { success: false, error: 'userId and imageData are required' }
+        return { success: false, error: 'imageData is required' }
       }
-      const result = await uploadPhoto(imageData, userId, format)
+      // Use authenticated user's ID instead of body parameter
+      const result = await uploadPhoto(imageData, user.id, format)
       return { success: true, data: result }
     } catch (error: any) {
       console.error('Photo upload API error:', error)
@@ -17,7 +18,7 @@ export const photosUploadRoute = new Elysia()
       return { success: false, error: error.message }
     }
   }, {
-    body: t.Object({ userId: t.String(), imageData: t.String(), format: t.Optional(t.String()) })
+    body: t.Object({ imageData: t.String(), format: t.Optional(t.String()) })
   })
 
 

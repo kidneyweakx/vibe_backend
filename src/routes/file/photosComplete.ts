@@ -2,22 +2,23 @@ import { Elysia, t } from 'elysia'
 import { confirmPhotoUpload, getExtensionFromContentType } from '../../services/file'
 
 export const photosCompleteRoute = new Elysia()
-  .post('/photos/complete', async ({ body, set }) => {
+  .post('/photos/complete', async ({ body, user, set }: any) => {
     try {
-      const { userId, key, contentType, sizeBytes } = body as { userId: string; key: string; contentType?: string; sizeBytes?: number }
-      if (!userId || !key) {
+      const { key, contentType, sizeBytes } = body as { key: string; contentType?: string; sizeBytes?: number }
+      if (!key) {
         set.status = 422
-        return { success: false, error: 'userId and key are required' }
+        return { success: false, error: 'key is required' }
       }
+      // Use authenticated user's ID instead of body parameter
       const format = getExtensionFromContentType(contentType) || (key.split('.').pop() || 'png')
-      const result = await confirmPhotoUpload({ userId, key, format, size: sizeBytes })
+      const result = await confirmPhotoUpload({ userId: user.id, key, format, size: sizeBytes })
       return { success: true, data: result }
     } catch (error: any) {
       set.status = 400
       return { success: false, error: error.message }
     }
   }, {
-    body: t.Object({ userId: t.String(), key: t.String(), contentType: t.Optional(t.String()), sizeBytes: t.Optional(t.Number()) })
+    body: t.Object({ key: t.String(), contentType: t.Optional(t.String()), sizeBytes: t.Optional(t.Number()) })
   })
 
 

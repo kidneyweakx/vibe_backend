@@ -2,10 +2,16 @@ import { Elysia, t } from 'elysia'
 import { UserService } from '../../services/user/serviceAdapter'
 
 export const updateProfileRoute = new Elysia()
-  .put('/profile/:id', async ({ params: { id }, body, set }) => {
+  .put('/profile/:id', async ({ params: { id }, body, user, set }: any) => {
     try {
-      const user = await UserService.updateUser(id, body as any)
-      return { success: true, data: user }
+      // Users can only update their own profile
+      if (user.id !== id) {
+        set.status = 403
+        return { success: false, error: 'Can only update your own profile' }
+      }
+
+      const updatedUser = await UserService.updateUser(id, body as any)
+      return { success: true, data: updatedUser }
     } catch (error: any) {
       set.status = 400
       return { success: false, error: 'Failed to update user' }

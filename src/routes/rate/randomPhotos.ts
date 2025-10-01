@@ -18,57 +18,51 @@ const logger = {
 };
 
 export const randomPhotosRoute = new Elysia()
-  .get('/photos/random', async ({ query, set }) => {
+  .get('/photos/random', async ({ query, user, set }: any) => {
     const startTime = Date.now();
-    const userId = query.userId as string
     const limit = parseInt(query.limit as string) || 10
-    
-    logger.info('Random photos request started', { 
-      userId, 
+
+    logger.info('Random photos request started', {
+      userId: user.id,
       limit,
-      requestedLimit: query.limit 
+      requestedLimit: query.limit
     });
-    
+
     try {
-      if (!userId) {
-        logger.warn('Missing userId parameter');
-        set.status = 400
-        return { success: false, error: 'userId is required' }
-      }
-      
-      logger.info('Starting random photos fetch process', { userId, limit });
-      
+      logger.info('Starting random photos fetch process', { userId: user.id, limit });
+
       // Add timeout protection
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Random photos request timeout after 15 seconds')), 15000);
       });
 
-      const photosPromise = getRandomPhotosForRating(userId, limit);
-      
+      // Use authenticated user's ID
+      const photosPromise = getRandomPhotosForRating(user.id, limit);
+
       // Race between the actual operation and timeout
       const photos = await Promise.race([photosPromise, timeoutPromise]);
-      
+
       const duration = Date.now() - startTime;
-      logger.info('Random photos request completed successfully', { 
-        userId, 
+      logger.info('Random photos request completed successfully', {
+        userId: user.id,
         limit,
         actualCount: photos.length,
         duration: `${duration}ms`,
         photoIds: photos.map(p => p.id).slice(0, 5) // Log first 5 photo IDs for debugging
       });
-      
+
       return { success: true, data: photos }
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      logger.error('Random photos request failed', { 
-        userId, 
+      logger.error('Random photos request failed', {
+        userId: user.id,
         limit,
         duration: `${duration}ms`,
         error: error.message,
         stack: error.stack,
         code: error.code
       });
-      
+
       if (error.message.includes('timeout')) {
         set.status = 504
         return { success: false, error: 'Request timeout' }

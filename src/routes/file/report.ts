@@ -2,14 +2,15 @@ import { Elysia, t } from 'elysia'
 import { createReport } from '../../services/file'
 
 export const reportRoute = new Elysia()
-  .post('/report', async ({ body, set }) => {
+  .post('/report', async ({ body, user, set }: any) => {
     try {
-      const { photoId, reporterId, reason } = body as { photoId: string; reporterId?: string; reason: string }
+      const { photoId, reason } = body as { photoId: string; reason: string }
       if (!photoId || !reason) {
         set.status = 400
         return { success: false, error: 'photoId and reason are required' }
       }
-      const report = await createReport({ photoId, reporterId, reason })
+      // Use authenticated user's ID as reporter
+      const report = await createReport({ photoId, reporterId: user.id, reason })
       return { success: true, data: { id: report.id } }
     } catch (error: any) {
       set.status = 400
@@ -18,7 +19,6 @@ export const reportRoute = new Elysia()
   }, {
     body: t.Object({
       photoId: t.String(),
-      reporterId: t.Optional(t.String()),
       reason: t.String()
     })
   })
