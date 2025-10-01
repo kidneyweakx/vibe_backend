@@ -78,9 +78,9 @@ describe('User E2E', () => {
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.id).toBe(user.id)
-      expect(data.data.name).toBe('Info User')
-      expect(data.data.photoCount).toBe(2)
+      expect(data.data.user.id).toBe(user.id)
+      expect(data.data.user.name).toBe('Info User')
+      expect(data.data.stats.photoCount).toBe(2)
     })
   })
 

@@ -1,6 +1,10 @@
-import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
+import { describe, test, expect, beforeEach, afterAll, mock } from 'bun:test'
 import { getTestDb, cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
-import { confirmPhotoUpload, getUserPhotos, createReport, aggregateReportedPhotos } from '../../src/services/file'
+import { confirmPhotoUpload, getUserPhotos, createReport, aggregateReportedPhotos, listReportsByPhoto, listAllReports } from '../../src/services/file'
+import { deletePhoto } from '../../src/services/file/deletePhoto'
+import { getAllPhotos } from '../../src/services/file/getAllPhotos'
+import { generatePhotoKey } from '../../src/services/file/generatePhotoKey'
+import { getExtensionFromContentType } from '../../src/services/file/getExtensionFromContentType'
 
 describe('File Service', () => {
   beforeEach(async () => {
@@ -172,6 +176,290 @@ describe('File Service', () => {
       expect(aggregated.length).toBe(1)
       expect(aggregated[0].photo.id).toBe(photo1.id)
       expect(aggregated[0].reportCount).toBe(3)
+    })
+  })
+
+  describe('deletePhoto', () => {
+    test('returns error when photo not found', async () => {
+      const result = await deletePhoto('nonexistent-photo-id')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Photo not found')
+    })
+
+    // Note: Full deletePhoto tests including R2 deletion are skipped
+    // because they require R2 client configuration which is not available in test environment.
+    // The database deletion logic is tested via cascade deletes in other tests.
+  })
+
+  describe('listReportsByPhoto', () => {
+    test('returns reports for a specific photo', async () => {
+      const owner = await createTestUser({
+        email: 'photo-owner@example.com'
+      })
+      const reporter1 = await createTestUser({
+        email: 'reporter1@example.com'
+      })
+      const reporter2 = await createTestUser({
+        email: 'reporter2@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/reported-photo.jpg'
+      })
+
+      await createReport({
+        photoId: photo.id,
+        reporterId: reporter1.id,
+        reason: 'Spam'
+      })
+      await createReport({
+        photoId: photo.id,
+        reporterId: reporter2.id,
+        reason: 'Inappropriate'
+      })
+
+      const result = await listReportsByPhoto(photo.id)
+
+      expect(result.reports.length).toBe(2)
+      expect(result.count).toBe(2)
+      expect(result.reports[0].reason).toBeDefined()
+      expect(result.reports[0].photo).toBeDefined()
+      expect(result.reports[0].reporter).toBeDefined()
+    })
+
+    test('returns empty list for photo with no reports', async () => {
+      const owner = await createTestUser({
+        email: 'no-reports@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/clean-photo.jpg'
+      })
+
+      const result = await listReportsByPhoto(photo.id)
+
+      expect(result.reports.length).toBe(0)
+      expect(result.count).toBe(0)
+    })
+  })
+
+  describe('listAllReports', () => {
+    test('lists all reports with pagination', async () => {
+      const owner = await createTestUser({
+        email: 'all-reports-owner@example.com'
+      })
+
+      const photo1 = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/photo1.jpg'
+      })
+      const photo2 = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/photo2.jpg'
+      })
+
+      // Create multiple reports
+      await createReport({ photoId: photo1.id, reason: 'Report 1' })
+      await createReport({ photoId: photo1.id, reason: 'Report 2' })
+      await createReport({ photoId: photo2.id, reason: 'Report 3' })
+
+      const result = await listAllReports(1, 10)
+
+      expect(result.reports.length).toBe(3)
+      expect(result.totalCount).toBe(3)
+      expect(result.hasMore).toBe(false)
+    })
+
+    test('pagination works correctly', async () => {
+      const owner = await createTestUser({
+        email: 'pagination-test@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/paginated-photo.jpg'
+      })
+
+      // Create 5 reports
+      for (let i = 0; i < 5; i++) {
+        await createReport({ photoId: photo.id, reason: `Report ${i}` })
+      }
+
+      const page1 = await listAllReports(1, 2)
+      expect(page1.reports.length).toBe(2)
+      expect(page1.hasMore).toBe(true)
+
+      const page2 = await listAllReports(2, 2)
+      expect(page2.reports.length).toBe(2)
+      expect(page2.hasMore).toBe(true)
+
+      const page3 = await listAllReports(3, 2)
+      expect(page3.reports.length).toBe(1)
+      expect(page3.hasMore).toBe(false)
+    })
+  })
+
+  describe('getAllPhotos', () => {
+    test('returns all photos with pagination', async () => {
+      const user = await createTestUser({
+        email: 'all-photos@example.com'
+      })
+
+      // Create 3 photos
+      for (let i = 0; i < 3; i++) {
+        await createTestPhoto({
+          userId: user.id,
+          key: `test/photo-${i}.jpg`
+        })
+      }
+
+      const result = await getAllPhotos({ page: 1, limit: 10 })
+
+      expect(result.photos.length).toBe(3)
+      expect(result.totalCount).toBe(3)
+      expect(result.hasMore).toBe(false)
+    })
+
+    test('filters photos by userId', async () => {
+      const user1 = await createTestUser({
+        email: 'user1@example.com'
+      })
+      const user2 = await createTestUser({
+        email: 'user2@example.com'
+      })
+
+      await createTestPhoto({
+        userId: user1.id,
+        key: 'test/user1-photo.jpg'
+      })
+      await createTestPhoto({
+        userId: user2.id,
+        key: 'test/user2-photo.jpg'
+      })
+
+      const result = await getAllPhotos({ userId: user1.id })
+
+      expect(result.photos.length).toBe(1)
+      expect(result.photos[0].userId).toBe(user1.id)
+    })
+
+    test('excludes profile pictures', async () => {
+      const user = await createTestUser({
+        email: 'profile-pic-test@example.com'
+      })
+
+      // Create regular photo
+      const regularPhoto = await createTestPhoto({
+        userId: user.id,
+        key: 'test/regular.jpg'
+      })
+
+      // Create profile picture (should be excluded)
+      await createTestPhoto({
+        userId: user.id,
+        key: 'profile-pictures/avatar.jpg'
+      })
+
+      const result = await getAllPhotos({ userId: user.id })
+
+      // Should only return the regular photo, not the profile picture
+      expect(result.photos.length).toBe(1)
+      expect(result.photos[0].id).toBe(regularPhoto.id)
+      expect(result.photos[0].userId).toBe(user.id)
+    })
+
+    test('pagination works correctly', async () => {
+      const user = await createTestUser({
+        email: 'pagination@example.com'
+      })
+
+      // Create 5 photos
+      for (let i = 0; i < 5; i++) {
+        await createTestPhoto({
+          userId: user.id,
+          key: `test/photo-${i}.jpg`
+        })
+      }
+
+      const page1 = await getAllPhotos({ page: 1, limit: 2 })
+      expect(page1.photos.length).toBe(2)
+      expect(page1.hasMore).toBe(true)
+
+      const page2 = await getAllPhotos({ page: 2, limit: 2 })
+      expect(page2.photos.length).toBe(2)
+      expect(page2.hasMore).toBe(true)
+
+      const page3 = await getAllPhotos({ page: 3, limit: 2 })
+      expect(page3.photos.length).toBe(1)
+      expect(page3.hasMore).toBe(false)
+    })
+  })
+
+  describe('generatePhotoKey', () => {
+    test('generates photo key with correct format', () => {
+      const userId = 'user123'
+      const format = 'jpg'
+
+      const key = generatePhotoKey(userId, format)
+
+      expect(key).toMatch(/^photos\/user123\/\d+\.jpg$/)
+    })
+
+    test('defaults to png format', () => {
+      const userId = 'user456'
+
+      const key = generatePhotoKey(userId)
+
+      expect(key).toMatch(/^photos\/user456\/\d+\.png$/)
+    })
+
+    test('supports different formats', () => {
+      const userId = 'user789'
+
+      const jpgKey = generatePhotoKey(userId, 'jpg')
+      const webpKey = generatePhotoKey(userId, 'webp')
+      const gifKey = generatePhotoKey(userId, 'gif')
+
+      expect(jpgKey).toContain('.jpg')
+      expect(webpKey).toContain('.webp')
+      expect(gifKey).toContain('.gif')
+    })
+  })
+
+  describe('getExtensionFromContentType', () => {
+    test('returns correct extension for image/jpeg', () => {
+      expect(getExtensionFromContentType('image/jpeg')).toBe('jpg')
+      expect(getExtensionFromContentType('image/jpg')).toBe('jpg')
+    })
+
+    test('returns correct extension for image/png', () => {
+      expect(getExtensionFromContentType('image/png')).toBe('png')
+    })
+
+    test('returns correct extension for image/webp', () => {
+      expect(getExtensionFromContentType('image/webp')).toBe('webp')
+    })
+
+    test('returns correct extension for image/gif', () => {
+      expect(getExtensionFromContentType('image/gif')).toBe('gif')
+    })
+
+    test('defaults to png for unknown content type', () => {
+      expect(getExtensionFromContentType('image/unknown')).toBe('png')
+      expect(getExtensionFromContentType('text/plain')).toBe('png')
+      expect(getExtensionFromContentType('')).toBe('png')
+    })
+
+    test('handles undefined content type', () => {
+      expect(getExtensionFromContentType(undefined)).toBe('png')
+    })
+
+    test('handles case insensitive content types', () => {
+      expect(getExtensionFromContentType('IMAGE/JPEG')).toBe('jpg')
+      expect(getExtensionFromContentType('Image/Png')).toBe('png')
     })
   })
 })

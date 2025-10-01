@@ -158,6 +158,212 @@ describe('Photo Rating E2E', () => {
       // Should include unrated photo2
       expect(photoIds).toContain(photo2.id)
     })
+
+    test('requires userId parameter', async () => {
+      const response = await apiGet('/rate/photos/random')
+      await expectError(response, 400)
+    })
+
+    test('uses default limit when not specified', async () => {
+      const rater = await createTestUser({
+        email: 'default-limit@example.com'
+      })
+
+      const owner = await createTestUser({
+        email: 'default-owner@example.com'
+      })
+
+      // Create 15 photos
+      for (let i = 1; i <= 15; i++) {
+        await createTestPhoto({ userId: owner.id, key: `test/default${i}.jpg` })
+      }
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      // Default limit is 10
+      expect(data.data.length).toBeLessThanOrEqual(10)
+    })
+
+    test('returns empty array when no photos available', async () => {
+      const rater = await createTestUser({
+        email: 'empty-rater@example.com'
+      })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.length).toBe(0)
+    })
+
+    test('excludes photos from guest users', async () => {
+      const rater = await createTestUser({
+        email: 'guest-test@example.com'
+      })
+
+      // Create guest user
+      const db = await import('../../src/dbConfig').then(m => m.default())
+      const guestUser = await db.user.create({
+        data: {
+          email: 'guest@example.com',
+          name: 'Guest User',
+          provider: 'guest',
+          providerId: 'guest_123',
+          isGuest: true
+        }
+      })
+
+      const normalUser = await createTestUser({
+        email: 'normal@example.com'
+      })
+
+      // Create photos
+      await createTestPhoto({ userId: guestUser.id, key: 'test/guest.jpg' })
+      await createTestPhoto({ userId: normalUser.id, key: 'test/normal.jpg' })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      // Should not include guest user photos
+      const userIds = data.data.map((p: any) => p.userId)
+      expect(userIds).not.toContain(guestUser.id)
+    })
+
+    test('excludes profile pictures', async () => {
+      const rater = await createTestUser({
+        email: 'profile-test@example.com'
+      })
+
+      const owner = await createTestUser({
+        email: 'owner-profile@example.com'
+      })
+
+      // Create profile picture and regular photo
+      const db = await import('../../src/dbConfig').then(m => m.default())
+      await db.photo.create({
+        data: {
+          userId: owner.id,
+          key: 'profile-pictures/profile.jpg',
+          url: 'https://example.com/profile.jpg',
+          format: 'jpg',
+          size: 100000,
+          isProfilePicture: true
+        }
+      })
+
+      await createTestPhoto({ userId: owner.id, key: 'test/regular.jpg' })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      // Should not include profile pictures
+      for (const photo of data.data) {
+        expect(photo.key).not.toContain('profile-pictures/')
+      }
+    })
+
+    test('returns one photo per user', async () => {
+      const rater = await createTestUser({
+        email: 'distinct-test@example.com'
+      })
+
+      const owner1 = await createTestUser({
+        email: 'owner-a@example.com'
+      })
+
+      const owner2 = await createTestUser({
+        email: 'owner-b@example.com'
+      })
+
+      // Create multiple photos per user
+      await createTestPhoto({ userId: owner1.id, key: 'test/a1.jpg' })
+      await createTestPhoto({ userId: owner1.id, key: 'test/a2.jpg' })
+      await createTestPhoto({ userId: owner2.id, key: 'test/b1.jpg' })
+      await createTestPhoto({ userId: owner2.id, key: 'test/b2.jpg' })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}&limit=10`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+
+      // Check that userIds are unique
+      const userIds = data.data.map((p: any) => p.userId)
+      const uniqueUserIds = [...new Set(userIds)]
+      expect(userIds.length).toBe(uniqueUserIds.length)
+    })
+
+    test('handles timeout gracefully', async () => {
+      const rater = await createTestUser({
+        email: 'timeout-test@example.com'
+      })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+
+      // Should either succeed or timeout with 504
+      if (response.status === 504) {
+        const data = await response.json()
+        expect(data.success).toBe(false)
+        expect(data.error).toContain('timeout')
+      } else {
+        const data = await expectSuccess(response)
+        expect(data.success).toBe(true)
+      }
+    })
+
+    test('excludes photos with 2 or more reports', async () => {
+      const rater = await createTestUser({
+        email: 'reported-test@example.com'
+      })
+
+      const owner = await createTestUser({
+        email: 'reported-owner@example.com'
+      })
+
+      const reporter1 = await createTestUser({
+        email: 'reporter1@example.com'
+      })
+
+      const reporter2 = await createTestUser({
+        email: 'reporter2@example.com'
+      })
+
+      const reportedPhoto = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/reported.jpg'
+      })
+
+      const cleanPhoto = await createTestPhoto({
+        userId: owner.id,
+        key: 'test/clean.jpg'
+      })
+
+      // Add 2 reports to first photo
+      await apiPost('/file/report', {
+        photoId: reportedPhoto.id,
+        reporterId: reporter1.id,
+        reason: 'inappropriate'
+      })
+
+      await apiPost('/file/report', {
+        photoId: reportedPhoto.id,
+        reporterId: reporter2.id,
+        reason: 'spam'
+      })
+
+      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      const photoIds = data.data.map((p: any) => p.id)
+      // Should not include reported photo
+      expect(photoIds).not.toContain(reportedPhoto.id)
+      // Should include clean photo
+      expect(photoIds).toContain(cleanPhoto.id)
+    })
   })
 
   describe('GET /api/info/journeyInfo/:userId', () => {

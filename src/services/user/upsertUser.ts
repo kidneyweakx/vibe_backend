@@ -40,14 +40,13 @@ export async function upsertUser(data: CreateUserData) {
     hasGender: !!data.gender
   });
 
-  try {
-;
+  // Calculate safeEmail outside of try block so it's available in catch
+  const safeEmail = data.email && data.email.trim().length > 0 ? data.email : `${data.provider}_${data.providerId}@placeholder.local`
 
+  try {
     logger.info('Obtaining Prisma client');
     const prisma = getPrisma()
-    logger.info('Prisma client obtained successfully');
-    
-    const safeEmail = data.email && data.email.trim().length > 0 ? data.email : `${data.provider}_${data.providerId}@placeholder.local`
+    logger.info('Prisma client obtained successfully')
     
     logger.info('Attempting user upsert', { 
       safeEmail,

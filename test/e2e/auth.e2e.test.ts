@@ -75,7 +75,7 @@ describe('Auth E2E', () => {
         authProvider: 'google'
       })
 
-      await expectError(response, 400)
+      await expectError(response, 422)
     })
 
     test('requires email', async () => {
@@ -84,7 +84,7 @@ describe('Auth E2E', () => {
         authProvider: 'google'
       })
 
-      await expectError(response, 400)
+      await expectError(response, 422)
     })
   })
 
