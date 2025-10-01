@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { TagService } from './service'
 import getPrisma from '../../dbConfig'
-import { getPresignedGetUrl } from '../file/presign'
+import { getPresignedGetUrl } from '../../services/r2/presign'
 
 export const searchPhotosByTagsRoute = new Elysia()
   .get('/search', async ({ query, set }) => {

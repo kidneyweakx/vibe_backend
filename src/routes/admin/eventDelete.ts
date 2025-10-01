@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia'
-import { deleteEvent } from './service'
+import { deleteEvent } from '../event/service'
 
-export const eventDeleteRoute = new Elysia()
-  .delete('/delete/:eventId', async ({ params, set }) => {
+export const adminEventDeleteRoute = new Elysia()
+  .delete('/events/:eventId', async ({ params, set }) => {
     try {
       const { eventId } = params as { eventId: string }
       if (!eventId) {

@@ -1,9 +1,8 @@
 import { Elysia, t } from 'elysia'
-import { getAllPhotos, deletePhoto, aggregateReportedPhotos, listAllReports } from './service'
-import { listEvents, deleteEvent } from '../event/service'
+import { getAllPhotos, deletePhoto, aggregateReportedPhotos, listAllReports } from '../file/service'
 
-export const fileAdminModule = new Elysia({ prefix: '/file/admin' })
-  // List photos (admin)
+export const adminPhotosRoute = new Elysia()
+  // List all photos (admin)
   .get('/photos', async ({ query, set }) => {
     try {
       const page = parseInt((query.page as string) || '1')
@@ -34,18 +33,6 @@ export const fileAdminModule = new Elysia({ prefix: '/file/admin' })
     }
   })
 
-  // List events (admin)
-  .get('/events', async ({ query, set }) => {
-    try {
-      const limit = parseInt((query.limit as string) || '20')
-      const data = await listEvents(limit)
-      return { success: true, data }
-    } catch (error: any) {
-      set.status = 500
-      return { success: false, error: error.message }
-    }
-  })
-
   // List reported photos (admin)
   .get('/reports', async ({ query, set }) => {
     try {
@@ -67,21 +54,6 @@ export const fileAdminModule = new Elysia({ prefix: '/file/admin' })
       const limit = parseInt((query.limit as string) || '20')
       const data = await listAllReports(page, limit)
       return { success: true, data }
-    } catch (error: any) {
-      set.status = 500
-      return { success: false, error: error.message }
-    }
-  })
-
-  // Delete event (admin)
-  .delete('/events/:eventId', async ({ params, set }) => {
-    try {
-      const result = await deleteEvent(params.eventId)
-      if (!result.success) {
-        set.status = 404
-        return { success: false, error: result.error }
-      }
-      return { success: true }
     } catch (error: any) {
       set.status = 500
       return { success: false, error: error.message }

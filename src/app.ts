@@ -7,7 +7,7 @@ import { tagRoutes } from "./routes/tag";
 import { eventModule } from "./routes/event";
 import { infoModule } from "./routes/info";
 import { accessTokenMiddleware } from "./middlewares/accessToken";
-import { fileAdminModule } from "./routes/file/admin";
+import { adminModule } from "./routes/admin";
 import { onboardingModule } from "./routes/onboarding";
 
 // Enhanced logging utility
@@ -55,15 +55,15 @@ export const app = new Elysia({ aot: false })
         return null
       })
       .use(accessTokenMiddleware)
-      .use(fileModule)
-      .use(fileAdminModule)
+      .use(authRoutes)
       .use(onboardingModule)
       .use(userRoutes)
-      .use(authRoutes)
+      .use(fileModule)
       .use(rateModule)
       .use(tagRoutes)
       .use(eventModule)
       .use(infoModule)
+      .use(adminModule)
   );
 
 export default app;

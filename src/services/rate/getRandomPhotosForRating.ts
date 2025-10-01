@@ -1,5 +1,5 @@
 import getPrisma from '../../dbConfig'
-import { getPresignedGetUrl } from '../../routes/file/presign'
+import { getPresignedGetUrl } from '../r2/presign'
 
 // 請求隊列，防止並行請求過多
 const requestQueue = new Map<string, Promise<any>>()

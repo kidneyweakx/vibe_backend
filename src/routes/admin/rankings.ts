@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
-import { getRankingList } from './service'
+import { getRankingList } from '../rate/service'
 
-export const rankingsRoute = new Elysia()
+export const adminRankingsRoute = new Elysia()
   .get('/rankings', async ({ query, set }) => {
     try {
       const limit = parseInt(query.limit as string) || 20

@@ -1,5 +1,5 @@
 import getPrisma from '../../dbConfig'
-import { getPresignedGetUrl } from '../../routes/file/presign'
+import { getPresignedGetUrl } from '../r2/presign'
 import { calculateTotalScore } from './calculateTotalScore'
 
 export async function getUserStats(userId: string) {
