@@ -19,7 +19,9 @@
     "load-test:prod": "bunx artillery run test/load-test-production.yml -o test/load-test-production-report.json && node test/parse-load-report.js test/load-test-production-report.json",
     "diagnose:r2": "bun run scripts/diagnose-r2.ts",
     "cleanup:orphaned": "bun run scripts/cleanup-orphaned-photos.ts --dry-run",
-    "cleanup:orphaned:force": "bun run scripts/cleanup-orphaned-photos.ts"
+    "cleanup:orphaned:force": "bun run scripts/cleanup-orphaned-photos.ts",
+    "seed:journey": "bun run scripts/seed-journey-data.ts",
+    "seed:journey:d1": "bun run scripts/seed-journey-data-d1.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",

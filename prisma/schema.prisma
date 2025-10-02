@@ -46,6 +46,7 @@ model Photo {
   status           String   @default("active") // "active" | "hidden" | "deleted" | "pending_review"
   hiddenAt         DateTime? // When photo was hidden
   hiddenReason     String?  // Reason for hiding: "auto_reports" | "admin_action" | "user_deleted"
+  takenAt          DateTime? // Original photo capture time from EXIF (if available)
   uploadedAt       DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ratings          Rating[]
@@ -54,6 +55,7 @@ model Photo {
 
   @@index([status])
   @@index([userId, status])
+  @@index([userId, takenAt])
   @@map("photos")
 }
 
@@ -80,6 +82,7 @@ model Tag {
   emoji       String?    // 可選的 emoji 圖示
   color       String?    // 標籤顏色 (hex code)
   category    String?    // 標籤分類 (如: style, occasion, season)
+  normal      Boolean    @default(false) // 是否為常見標籤
   createdAt   DateTime   @default(now())
   photoTags   PhotoTag[]
 

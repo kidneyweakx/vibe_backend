@@ -91,7 +91,7 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
     ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalRatings) * 100)
     : 0
 
-  // Get overall ranking (guests now included)
+  // Get overall ranking (excluding guest users)
   const overallRankResult = await prisma.$queryRaw<Array<{ rank: bigint }>>`
     SELECT COUNT(*) + 1 as rank
     FROM users u
@@ -104,6 +104,7 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
       GROUP BY ratedUserId
     ) r ON u.id = r.ratedUserId
     WHERE u.id != ${userId}
+      AND u.isGuest = 0
       AND (
         CASE
           WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
@@ -115,7 +116,7 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
       ) > ${totalScore}
   `
 
-  // Get gender ranking (guests now included)
+  // Get gender ranking (excluding guest users)
   const genderRankResult = user.gender ? await prisma.$queryRaw<Array<{ rank: bigint }>>`
     SELECT COUNT(*) + 1 as rank
     FROM users u
@@ -128,6 +129,7 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
       GROUP BY ratedUserId
     ) r ON u.id = r.ratedUserId
     WHERE u.id != ${userId}
+      AND u.isGuest = 0
       AND u.gender = ${user.gender}
       AND (
         CASE
@@ -140,8 +142,8 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
       ) > ${totalScore}
   ` : [{ rank: BigInt(0) }]
 
-  // Get total user count (guests now included)
-  const totalUsersResult = await prisma.user.count()
+  // Get total user count (excluding guest users)
+  const totalUsersResult = await prisma.user.count({ where: { isGuest: false } })
 
   // Get gender-specific attraction data
   const [femaleLikeCount, maleLikeCount, femaleNormalCount, maleNormalCount] = await Promise.all([

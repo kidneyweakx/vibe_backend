@@ -57,7 +57,8 @@ export async function getRankingList(limit: number = 50) {
             AND p2.key NOT LIKE 'profile-pictures/%'
         )
     ) latest_photo ON u.id = latest_photo.userId
-    WHERE (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0
+    WHERE u.isGuest = 0
+      AND (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0
     ORDER BY totalScore DESC
   `
 
@@ -95,8 +96,8 @@ export async function getRankingList(limit: number = 50) {
     }
   }))
 
-  // Get total users count (guests now included)
-  const totalUsers = await prisma.user.count()
+  // Get total users count (excluding guest users)
+  const totalUsers = await prisma.user.count({ where: { isGuest: false } })
 
   // Generate rankings
   const overallUsers = processedScores.slice(0, limit).map((user, index) => ({ 

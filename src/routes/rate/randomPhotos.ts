@@ -51,7 +51,14 @@ export const randomPhotosRoute = new Elysia()
         photoIds: photos.map(p => p.id).slice(0, 5) // Log first 5 photo IDs for debugging
       });
 
-      return { success: true, data: photos }
+      // Transform photoTags to tags array
+      const photosWithTags = photos.map((photo: any) => ({
+        ...photo,
+        tags: photo.photoTags?.map((pt: any) => pt.tag) || [],
+        photoTags: undefined // Remove photoTags from response
+      }));
+
+      return { success: true, data: photosWithTags }
     } catch (error: any) {
       const duration = Date.now() - startTime;
       logger.error('Random photos request failed', {

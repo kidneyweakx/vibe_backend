@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaD1 } from '@prisma/adapter-d1'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { createClient } from '@libsql/client'
 import { getEnvVar } from './env'
 
 let prismaInstance: PrismaClient | null = null
@@ -19,38 +21,60 @@ const requireEnv = (name: string): string => {
 
 export const getPrisma = (env?: any): PrismaClient => {
   if (prismaInstance) return prismaInstance
-  
+
   if (isConnecting) {
     throw new Error('Database connection is being established, please wait')
   }
-  
+
   isConnecting = true
-  
+
   try {
-    // 開發環境 SQLite 覆蓋
+    // 1. 開發環境 SQLite 覆蓋 (file: or :memory:)
     const databaseUrl = process.env?.DATABASE_URL
     if (databaseUrl && /^(file:|:memory:)/i.test(databaseUrl)) {
-      prismaInstance = new PrismaClient({ 
-        datasourceUrl: databaseUrl, 
+      prismaInstance = new PrismaClient({
+        datasourceUrl: databaseUrl,
         log: ['error']
       })
       return prismaInstance
     }
 
-    // 從全域環境獲取 env，如果沒有傳遞參數
+    // 2. Turso/libSQL connection (for scripts and non-Worker environments)
+    const tursoUrl = process.env?.TURSO_DATABASE_URL || getEnvVar('TURSO_DATABASE_URL')
+    const tursoToken = process.env?.TURSO_AUTH_TOKEN || getEnvVar('TURSO_AUTH_TOKEN')
+
+    if (tursoUrl && tursoToken) {
+      const libsql = createClient({
+        url: tursoUrl,
+        authToken: tursoToken,
+      })
+      const adapter = new PrismaLibSQL(libsql)
+      prismaInstance = new PrismaClient({
+        adapter,
+        log: ['error']
+      })
+      return prismaInstance
+    }
+
+    // 3. D1 binding (Cloudflare Workers environment)
     const envToUse = env || (globalThis as any).__ENV
-    
+
     if (!envToUse || !envToUse.DB) {
-      throw new Error('D1 database binding not found. Make sure env.DB is available.')
+      throw new Error(
+        'No database connection available.\n' +
+        '- For Workers: ensure env.DB is bound\n' +
+        '- For scripts: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN\n' +
+        '- For local dev: use DATABASE_URL=file:./dev.db'
+      )
     }
 
     const adapter = new PrismaD1(envToUse.DB)
-    
-    prismaInstance = new PrismaClient({ 
-      adapter, 
+
+    prismaInstance = new PrismaClient({
+      adapter,
       log: ['error']
     })
-    
+
     return prismaInstance
   } finally {
     isConnecting = false

@@ -3,8 +3,14 @@ import { getPublicObjectUrl, getPresignedGetUrl } from '../../services/r2/presig
 import { HeadObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client } from '../r2/r2Client'
 
-export async function confirmPhotoUpload(params: { userId: string; key: string; format?: string; size?: number }) {
-  const { userId, key, format = (key.split('.').pop() || 'png'), size } = params
+export async function confirmPhotoUpload(params: {
+  userId: string
+  key: string
+  format?: string
+  size?: number
+  takenAt?: Date
+}) {
+  const { userId, key, format = (key.split('.').pop() || 'png'), size, takenAt } = params
   try {
     try {
       const { client, bucketName } = getR2Client()
@@ -25,7 +31,14 @@ export async function confirmPhotoUpload(params: { userId: string; key: string; 
 
     const publicUrl = getPublicObjectUrl(key)
     const photo = await getPrisma().photo.create({
-      data: { userId, key, url: publicUrl, format, size: size || 0 }
+      data: {
+        userId,
+        key,
+        url: publicUrl,
+        format,
+        size: size || 0,
+        takenAt: takenAt || undefined
+      }
     })
     const signedUrl = await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
     return {

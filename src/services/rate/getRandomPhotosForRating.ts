@@ -74,7 +74,12 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
         ]
       },
       include: {
-        user: { select: { id: true, name: true, gender: true } }
+        user: { select: { id: true, name: true, gender: true } },
+        photoTags: {
+          include: {
+            tag: true
+          }
+        }
       },
       orderBy: { uploadedAt: 'desc' },
       distinct: ['userId'],
