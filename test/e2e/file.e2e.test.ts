@@ -109,7 +109,8 @@ describe('File E2E', () => {
       const response = await apiPost('/file/photos/upload', {
       }, { token })
 
-      await expectError(response, 400)
+      // Elysia schema validation returns 422 for missing required fields
+      await expectError(response, 422)
     })
   })
 

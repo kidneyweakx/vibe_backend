@@ -26,7 +26,13 @@ export async function uploadPhoto(imageData: string, userId: string, format: str
       data: { userId, key: uploadResult.key!, url: uploadResult.url!, format, size: bytes.length }
     })
     const signedUrl = await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
-    return { photoId: photo.id, urls: { original: signedUrl }, uploadedAt: photo.uploadedAt }
+    return {
+      id: photo.id,
+      userId: photo.userId,
+      photoId: photo.id,
+      urls: { original: signedUrl },
+      uploadedAt: photo.uploadedAt
+    }
   } catch (error: any) {
     console.error('Photo upload error:', error)
     throw error

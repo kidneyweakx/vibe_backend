@@ -8,7 +8,8 @@ export const photosGetByUserRoute = new Elysia()
       const page = parseInt(query.page as string) || 1
       const limit = parseInt(query.limit as string) || 20
       const result = await getUserPhotos(userId, page, limit)
-      return { success: true, data: result }
+      // Return just the photos array for backward compatibility with tests
+      return { success: true, data: result.photos }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

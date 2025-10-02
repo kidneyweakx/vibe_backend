@@ -1,6 +1,23 @@
-import { existsSync, statSync } from 'fs'
+import { existsSync, statSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { execSync } from 'child_process'
+
+// Load .env.test file for testing environment
+const envTestPath = resolve(process.cwd(), '.env.test')
+if (existsSync(envTestPath)) {
+  const envContent = readFileSync(envTestPath, 'utf-8')
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim()
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...valueParts] = trimmed.split('=')
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join('=')
+        process.env[key.trim()] = value.trim()
+      }
+    }
+  })
+  console.log('✅ Loaded .env.test configuration')
+}
 
 const TEST_DB_PATH = resolve(process.cwd(), 'prisma', 'test.db')
 

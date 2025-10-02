@@ -295,22 +295,24 @@ describe('Rate Service', () => {
         email: 'owner@profile.com'
       })
 
-      // Create profile picture
+      // Create profile picture (using isProfilePicture flag)
       await createTestPhoto({
         userId: owner.id,
-        key: 'profile-pictures/avatar.jpg'
+        key: 'profile-pictures/avatar.jpg',
+        isProfilePicture: true
       })
 
       // Create regular photo
       await createTestPhoto({
         userId: owner.id,
-        key: 'test/regular.jpg'
+        key: 'test/regular.jpg',
+        isProfilePicture: false
       })
 
       const photos = await getRandomPhotosForRating(rater.id, 10)
 
       // Should only include regular photos, not profile pictures
-      const profilePics = photos.filter(p => p.key.startsWith('profile-pictures/'))
+      const profilePics = photos.filter((p: any) => p.isProfilePicture === true)
       expect(profilePics.length).toBe(0)
     })
 

@@ -68,6 +68,7 @@ export async function createTestUser(data: {
 export async function createTestPhoto(data: {
   userId: string
   key: string
+  isProfilePicture?: boolean
 }) {
   const db = await getTestDb()
   return db.photo.create({
@@ -76,7 +77,8 @@ export async function createTestPhoto(data: {
       key: data.key,
       url: `https://example.com/${data.key}`,
       format: 'jpg',
-      size: 100000
+      size: 100000,
+      isProfilePicture: data.isProfilePicture ?? false
     }
   })
 }

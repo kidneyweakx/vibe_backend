@@ -28,7 +28,14 @@ export async function confirmPhotoUpload(params: { userId: string; key: string; 
       data: { userId, key, url: publicUrl, format, size: size || 0 }
     })
     const signedUrl = await getPresignedGetUrl(photo.key, 60 * 60 * 24 * 7)
-    return { photoId: photo.id, urls: { original: signedUrl }, uploadedAt: photo.uploadedAt }
+    return {
+      id: photo.id,
+      userId: photo.userId,
+      format: photo.format,
+      photoId: photo.id,
+      urls: { original: signedUrl },
+      uploadedAt: photo.uploadedAt
+    }
   } catch (error: any) {
     console.error('Confirm photo upload error:', error)
     throw error

@@ -46,7 +46,7 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
       latestPhotoKey: string | null
       latestPhotoUrl: string | null
     }>>`
-      SELECT 
+      SELECT
         u.id as userId,
         u.name,
         u.avatar,
@@ -59,12 +59,12 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
       LEFT JOIN (
         SELECT userId, key, url
         FROM photos p1
-        WHERE key NOT LIKE 'profile-pictures/%'
+        WHERE isProfilePicture = 0
           AND uploadedAt = (
             SELECT MAX(uploadedAt)
             FROM photos p2
             WHERE p2.userId = p1.userId
-              AND p2.key NOT LIKE 'profile-pictures/%'
+              AND p2.isProfilePicture = 0
           )
       ) latest_photo ON u.id = latest_photo.userId
       WHERE u.id = ${userId}
@@ -128,7 +128,7 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
         email: user.email,
         provider: user.provider
       },
-      journey: {
+      stats: {
         totalScore: journey.totalScore,
         likeCount: journey.likeCount,
         normalCount: journey.normalCount,
@@ -144,7 +144,7 @@ export async function getProfileInfo(userId: string, page: number = 1, limit: nu
         nextMilestone: journey.nextMilestone,
         levelProgress: journey.levelProgress
       },
-      photos
+      photos: photos.photos  // Return just the photos array, not the whole PhotoListResponse
     }
   } catch (error: any) {
     console.error('Profile info error:', error)
