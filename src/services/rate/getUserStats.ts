@@ -11,7 +11,10 @@ export async function getUserStats(userId: string) {
   const totalScore = calculateTotalScore(likeCount, normalCount)
   const allUserStats = await getPrisma().rating.groupBy({
     by: ['ratedUserId'],
-    where: { type: { in: ['like', 'normal'] }, ratedUserId: { not: { startsWith: 'guest' } } },
+    where: {
+      type: { in: ['like', 'normal'] },
+      ratedUser: { isGuest: false }
+    },
     _count: { _all: true }
   })
   const userScores = await Promise.all(allUserStats.map(async (stat) => {
@@ -23,7 +26,13 @@ export async function getUserStats(userId: string) {
   const overallRank = betterUsers.length + 1
   let genderRank: number | undefined
   if (user.gender) {
-    const sameGenderUsers = await getPrisma().user.findMany({ where: { gender: user.gender, id: { not: { startsWith: 'guest' } } }, select: { id: true } })
+    const sameGenderUsers = await getPrisma().user.findMany({
+      where: {
+        gender: user.gender,
+        isGuest: false
+      },
+      select: { id: true }
+    })
     const sameGenderScores = userScores.filter(u => sameGenderUsers.some(sgu => sgu.id === u.userId))
     const betterSameGenderUsers = sameGenderScores.filter(u => u.score > totalScore)
     genderRank = betterSameGenderUsers.length + 1

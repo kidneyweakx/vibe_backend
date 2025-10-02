@@ -1,4 +1,4 @@
-import { upsertUser, type CreateUserData, getUserById, getUserByEmail, getUserByProvider, updateUser as svcUpdateUser, deleteUser as svcDeleteUser, createTestUser, getUserPublicInfo, generateShareableLink } from './index'
+import { upsertUser, type CreateUserData, getUserById, getUserByEmail, getUserByProvider, updateUser as svcUpdateUser, deleteUser as svcDeleteUser, getUserPublicInfo, generateShareableLink } from './index'
 
 export interface UpdateUserData {
   name?: string
@@ -24,9 +24,6 @@ export class UserService {
   }
   static async deleteUser(id: string) {
     return svcDeleteUser(id)
-  }
-  static async createTestUser(email: string, name?: string) {
-    return createTestUser(email, name)
   }
   static async getUserPublicInfo(userId: string) {
     return getUserPublicInfo(userId)

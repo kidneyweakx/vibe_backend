@@ -2,6 +2,21 @@ import { existsSync, statSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { execSync } from 'child_process'
 
+// Suppress verbose console logs during tests (keep errors and critical messages)
+const originalLog = console.log
+const originalInfo = console.info
+
+console.log = (...args: any[]) => {
+  // Only show logs that start with ✅, 📦, or ❌
+  const firstArg = args[0]?.toString() || ''
+  if (firstArg.startsWith('✅') || firstArg.startsWith('📦') || firstArg.startsWith('❌')) {
+    originalLog(...args)
+  }
+}
+console.info = () => {} // Suppress info logs
+
+// Keep console.error and console.warn for actual issues
+
 // Load .env.test file for testing environment
 const envTestPath = resolve(process.cwd(), '.env.test')
 if (existsSync(envTestPath)) {

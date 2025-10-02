@@ -31,6 +31,7 @@ export async function confirmPhotoUpload(params: { userId: string; key: string; 
     return {
       id: photo.id,
       userId: photo.userId,
+      key: photo.key,
       format: photo.format,
       photoId: photo.id,
       urls: { original: signedUrl },

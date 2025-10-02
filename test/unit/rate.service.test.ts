@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
 import { getTestDb, cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
-import { ratePhoto } from '../../src/services/rate'
+import { ratePhoto, getUserStats } from '../../src/services/rate'
 import { calculateTotalScore } from '../../src/services/rate/calculateTotalScore'
 import { getRandomPhotosForRating } from '../../src/services/rate/getRandomPhotosForRating'
 import { getJourneyDashboard } from '../../src/services/rate/journeyService'
@@ -627,6 +627,185 @@ describe('Rate Service', () => {
         expect(dashboard.nextMilestone.title).toBeDefined()
         expect(dashboard.nextMilestone.targetValue).toBeGreaterThan(dashboard.nextMilestone.currentValue)
       }
+    })
+  })
+
+  describe('getUserStats', () => {
+    test('returns basic stats for user with no ratings', async () => {
+      const user = await createTestUser({
+        email: 'stats@example.com'
+      })
+
+      const stats = await getUserStats(user.id)
+
+      expect(stats.userId).toBe(user.id)
+      expect(stats.totalScore).toBe(0)
+      expect(stats.likeCount).toBe(0)
+      expect(stats.normalCount).toBe(0)
+      expect(stats.totalRatings).toBe(0)
+      expect(stats.overallRank).toBe(1)
+      expect(stats.recentRatings.length).toBe(0)
+    })
+
+    test('calculates stats correctly with ratings', async () => {
+      const user = await createTestUser({
+        email: 'rated-user@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: user.id,
+        key: 'test/stats.jpg'
+      })
+
+      const rater1 = await createTestUser({
+        email: 'rater1@example.com'
+      })
+
+      const rater2 = await createTestUser({
+        email: 'rater2@example.com'
+      })
+
+      // Create ratings
+      await ratePhoto(rater1.id, photo.id, 'like')
+      await ratePhoto(rater2.id, photo.id, 'normal')
+
+      const stats = await getUserStats(user.id)
+
+      expect(stats.userId).toBe(user.id)
+      expect(stats.likeCount).toBe(1)
+      expect(stats.normalCount).toBe(1)
+      expect(stats.totalRatings).toBe(2)
+      expect(stats.totalScore).toBe(60) // (1*1 + 1*0.2) / 2 * 100 = 60
+      expect(stats.recentRatings.length).toBe(2)
+    })
+
+    test('calculates overall rank correctly', async () => {
+      const user1 = await createTestUser({
+        email: 'user1@example.com'
+      })
+
+      const user2 = await createTestUser({
+        email: 'user2@example.com'
+      })
+
+      const photo1 = await createTestPhoto({
+        userId: user1.id,
+        key: 'test/photo1.jpg'
+      })
+
+      const photo2 = await createTestPhoto({
+        userId: user2.id,
+        key: 'test/photo2.jpg'
+      })
+
+      const rater = await createTestUser({
+        email: 'rater@example.com'
+      })
+
+      // User1 gets 2 likes (score 100)
+      await ratePhoto(rater.id, photo1.id, 'like')
+      const rater2 = await createTestUser({
+        email: 'rater2@example.com'
+      })
+      await ratePhoto(rater2.id, photo1.id, 'like')
+
+      // User2 gets 1 like (score 100)
+      await ratePhoto(rater.id, photo2.id, 'like')
+
+      const stats1 = await getUserStats(user1.id)
+      const stats2 = await getUserStats(user2.id)
+
+      // Both have score 100, so both should be rank 1
+      expect(stats1.overallRank).toBe(1)
+      expect(stats2.overallRank).toBe(1)
+    })
+
+    test('calculates gender rank when user has gender', async () => {
+      const maleUser1 = await createTestUser({
+        email: 'male1@example.com',
+        gender: 'male'
+      })
+
+      const maleUser2 = await createTestUser({
+        email: 'male2@example.com',
+        gender: 'male'
+      })
+
+      const femaleUser = await createTestUser({
+        email: 'female@example.com',
+        gender: 'female'
+      })
+
+      const photo1 = await createTestPhoto({
+        userId: maleUser1.id,
+        key: 'test/male1.jpg'
+      })
+
+      const photo2 = await createTestPhoto({
+        userId: maleUser2.id,
+        key: 'test/male2.jpg'
+      })
+
+      const rater = await createTestUser({
+        email: 'rater@example.com'
+      })
+
+      // MaleUser1 gets 2 likes
+      await ratePhoto(rater.id, photo1.id, 'like')
+      const rater2 = await createTestUser({
+        email: 'rater2@example.com'
+      })
+      await ratePhoto(rater2.id, photo1.id, 'like')
+
+      // MaleUser2 gets 1 like
+      await ratePhoto(rater.id, photo2.id, 'like')
+
+      const stats1 = await getUserStats(maleUser1.id)
+      const stats2 = await getUserStats(maleUser2.id)
+
+      // Both male users have same score (100), so both rank 1 among males
+      expect(stats1.genderRank).toBe(1)
+      expect(stats2.genderRank).toBe(1)
+    })
+
+    test('genderRank is undefined when user has no gender', async () => {
+      const user = await createTestUser({
+        email: 'no-gender@example.com',
+        gender: null
+      })
+
+      const stats = await getUserStats(user.id)
+
+      expect(stats.genderRank).toBeUndefined()
+    })
+
+    test('recent ratings includes photo URLs', async () => {
+      const user = await createTestUser({
+        email: 'recent@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: user.id,
+        key: 'test/recent.jpg'
+      })
+
+      const rater = await createTestUser({
+        email: 'rater@example.com'
+      })
+
+      await ratePhoto(rater.id, photo.id, 'like')
+
+      const stats = await getUserStats(user.id)
+
+      expect(stats.recentRatings.length).toBe(1)
+      expect(stats.recentRatings[0].photoId).toBe(photo.id)
+      expect(stats.recentRatings[0].photoUrl).toBeDefined()
+      expect(stats.recentRatings[0].type).toBe('like')
+      expect(stats.recentRatings[0].createdAt).toBeDefined()
+    })
+
+    test('throws error for non-existent user', async () => {
+      await expect(getUserStats('non-existent-id')).rejects.toThrow('User not found')
     })
   })
 })

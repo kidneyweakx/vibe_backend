@@ -53,6 +53,7 @@ export async function createTestUser(data: {
   name?: string
   provider?: string
   providerId?: string
+  gender?: string | null
 }) {
   const db = await getTestDb()
   return db.user.create({
@@ -60,7 +61,8 @@ export async function createTestUser(data: {
       email: data.email,
       name: data.name || 'Test User',
       provider: data.provider || 'test',
-      providerId: data.providerId || data.email
+      providerId: data.providerId || data.email,
+      ...(data.gender !== undefined && { gender: data.gender })
     }
   })
 }

@@ -424,3 +424,30 @@ describe('UserService', () => {
     })
   })
 })
+
+  describe('generateShareableLink', () => {
+    test('generates shareable link for existing user', async () => {
+      const user = await upsertUser({
+        email: 'share@example.com',
+        provider: 'test',
+        providerId: 'share-123',
+        name: 'Share User'
+      })
+
+      const { generateShareableLink } = await import('../../src/services/user/generateShareableLink')
+      const linkData = await generateShareableLink(user.id)
+
+      expect(linkData.userId).toBe(user.id)
+      expect(linkData.userName).toBe('Share User')
+      expect(linkData.shareUrl).toContain(user.id)
+      expect(linkData.apiUrl).toContain(user.id)
+      expect(linkData.qrCodeUrl).toContain(user.id)
+      expect(linkData.createdAt).toBeDefined()
+    })
+
+    test('throws error for non-existent user', async () => {
+      const { generateShareableLink } = await import('../../src/services/user/generateShareableLink')
+      
+      await expect(generateShareableLink('non-existent-id')).rejects.toThrow('User not found')
+    })
+  })

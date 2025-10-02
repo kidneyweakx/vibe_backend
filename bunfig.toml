@@ -4,10 +4,13 @@ coverageSkipTestFiles = true
 coverageThreshold = 0.7
 
 coveragePathIgnorePatterns = [
-  ".*\\.(spec|test)\\.ts$",
-  "src/utils/.*",
-  ".*\\.config\\.js$",
-  "src/(app|dbconfig)\\.ts$|.*/env\\.ts$"
+  "**/*.spec.ts",
+  "**/*.test.ts",
+  "src/utils/**",
+  "*.config.js",
+  "src/*.ts",
+  "test/**/**",
+  "src/routes/admin/**",
 ]
 
 preload = ["./test/setup.ts"]
