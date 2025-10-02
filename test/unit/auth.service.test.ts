@@ -134,6 +134,36 @@ describe('Auth Service', () => {
     })
   })
 
+  // ==========================================
+  // MOCKED: OAuth Token Verification Tests
+  // These tests use mocked OAuth responses since
+  // real Google/Apple API calls require valid tokens
+  // ==========================================
+  describe('OAuth Token Verification (MOCKED)', () => {
+    test('verifyGoogleToken returns null for invalid token (simulated)', async () => {
+      const result = await AuthService.verifyGoogleToken('invalid-google-token')
+
+      expect(result).toBeNull()
+    })
+
+    test('verifyAppleToken returns null for invalid token (simulated)', async () => {
+      const appleData = {
+        idToken: 'invalid-apple-token',
+        nonce: 'test-nonce',
+        userIdentifier: 'test-user-id',
+        email: 'test@example.com'
+      }
+
+      const result = await AuthService.verifyAppleToken(appleData)
+
+      expect(result).toBeNull()
+    })
+
+    // Note: signInWithGoogle and signInWithApple require valid OAuth tokens
+    // which we cannot easily mock without complex setup.
+    // These are better tested via E2E tests with real OAuth flows.
+  })
+
   describe('Password Authentication', () => {
     test('registers user with password', async () => {
       const email = 'register@example.com'

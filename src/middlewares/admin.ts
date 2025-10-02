@@ -10,8 +10,8 @@ import { isLocal } from '../utils/runtime'
  * 2. Cloudflare environment: Requires ADMIN_API_KEY (read-only operations)
  */
 export const adminMiddleware = new Elysia()
-  .derive(({ request, set }) => {
-    const adminKey = request.headers.get('X-Admin-Key')
+  .derive(({ headers, set }: any) => {
+    const adminKey = headers['x-admin-key'] || headers['X-Admin-Key']
     const expectedKey = getEnvVar('ADMIN_API_KEY')
     const local = isLocal()
 

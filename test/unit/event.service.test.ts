@@ -18,40 +18,53 @@ describe('Event Service', () => {
     test('uploads event image to R2 and creates database record', async () => {
       // Small test base64 image (1x1 pixel PNG)
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const eventName = 'Test Event'
-      const description = 'Test event description'
 
-      const result = await uploadEventImage(base64Image, eventName, description)
+      const result = await uploadEventImage({
+        title: 'Test Event',
+        description: 'Test event description',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01'),
+        endsAt: new Date('2025-12-31')
+      })
 
       expect(result.id).toBeDefined()
-      expect(result.name).toBe(eventName)
-      expect(result.description).toBe(description)
+      expect(result.title).toBe('Test Event')
+      expect(result.description).toBe('Test event description')
       expect(result.imageUrl).toBeDefined()
-      expect(result.imageUrl).toContain('.png')
+      expect(result.format).toBe('webp') // Always converts to webp
 
       // Verify event was created in database
       const event = await getPrisma().event.findUnique({
         where: { id: result.id }
       })
       expect(event).toBeDefined()
-      expect(event!.name).toBe(eventName)
+      expect(event!.title).toBe('Test Event')
     })
 
-    test('handles different image formats', async () => {
+    test('creates event without end date', async () => {
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-      const result = await uploadEventImage(base64Image, 'JPEG Event', 'Test', 'jpg')
+      const result = await uploadEventImage({
+        title: 'No End Date Event',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01')
+      })
 
-      expect(result.imageUrl).toContain('.jpg')
+      expect(result.id).toBeDefined()
+      expect(result.endsAt).toBeNull()
     })
 
     test('creates event with optional description', async () => {
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-      const result = await uploadEventImage(base64Image, 'No Description Event')
+      const result = await uploadEventImage({
+        title: 'No Description Event',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01')
+      })
 
       expect(result.id).toBeDefined()
-      expect(result.name).toBe('No Description Event')
+      expect(result.title).toBe('No Description Event')
       expect(result.description).toBeNull()
     })
   })
@@ -60,7 +73,12 @@ describe('Event Service', () => {
     test('deletes event from database and R2', async () => {
       // First create an event
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      const event = await uploadEventImage(base64Image, 'Delete Test Event', 'Will be deleted')
+      const event = await uploadEventImage({
+        title: 'Delete Test Event',
+        description: 'Will be deleted',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01')
+      })
 
       // Delete the event
       const result = await deleteEvent(event.id)
@@ -74,8 +92,11 @@ describe('Event Service', () => {
       expect(deletedEvent).toBeNull()
     })
 
-    test('throws error when deleting non-existent event', async () => {
-      await expect(deleteEvent('non-existent-id')).rejects.toThrow()
+    test('returns error when deleting non-existent event', async () => {
+      const result = await deleteEvent('non-existent-id')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Event not found')
     })
   })
 
@@ -84,14 +105,29 @@ describe('Event Service', () => {
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
       // Create multiple events
-      await uploadEventImage(base64Image, 'Event 1', 'First event')
-      await uploadEventImage(base64Image, 'Event 2', 'Second event')
-      await uploadEventImage(base64Image, 'Event 3', 'Third event')
+      await uploadEventImage({
+        title: 'Event 1',
+        description: 'First event',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01')
+      })
+      await uploadEventImage({
+        title: 'Event 2',
+        description: 'Second event',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-02-01')
+      })
+      await uploadEventImage({
+        title: 'Event 3',
+        description: 'Third event',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-03-01')
+      })
 
       const events = await listEvents()
 
       expect(events.length).toBe(3)
-      expect(events[0].name).toBeDefined()
+      expect(events[0].title).toBeDefined()
       expect(events[0].imageUrl).toBeDefined()
     })
 
@@ -104,9 +140,19 @@ describe('Event Service', () => {
     test('orders events by creation date descending', async () => {
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-      const event1 = await uploadEventImage(base64Image, 'First', 'First created')
+      const event1 = await uploadEventImage({
+        title: 'First',
+        description: 'First created',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-01-01')
+      })
       await new Promise(resolve => setTimeout(resolve, 10)) // Small delay
-      const event2 = await uploadEventImage(base64Image, 'Second', 'Second created')
+      const event2 = await uploadEventImage({
+        title: 'Second',
+        description: 'Second created',
+        imageBase64: base64Image,
+        startsAt: new Date('2025-02-01')
+      })
 
       const events = await listEvents()
 

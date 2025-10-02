@@ -49,14 +49,21 @@ export async function uploadProfilePicture(userId: string, imageFile: File): Pro
       })
     }
 
+    // Remove old profile picture if exists
+    await getPrisma().photo.updateMany({
+      where: { userId, isProfilePicture: true },
+      data: { isProfilePicture: false }
+    })
+
     // Create photo record in database
     const photo = await getPrisma().photo.create({
-      data: { 
-        userId, 
-        key: uploadResult.key, 
-        url: uploadResult.url, 
-        format: imageFile.type.split('/')[1] || 'png', 
-        size: imageFile.size 
+      data: {
+        userId,
+        key: uploadResult.key,
+        url: uploadResult.url,
+        format: imageFile.type.split('/')[1] || 'png',
+        size: imageFile.size,
+        isProfilePicture: true
       }
     })
 
