@@ -24,7 +24,9 @@ describe('Info E2E', () => {
       expect(data.success).toBe(true)
       expect(data.data.topUsers).toBeDefined()
       expect(data.data.recentEvents).toBeDefined()
-      expect(Array.isArray(data.data.topUsers)).toBe(true)
+      // topUsers is now an object with overall, male, female rankings
+      expect(data.data.topUsers.overall).toBeDefined()
+      expect(Array.isArray(data.data.topUsers.overall)).toBe(true)
       expect(Array.isArray(data.data.recentEvents)).toBe(true)
     })
 
@@ -60,6 +62,7 @@ describe('Info E2E', () => {
       await db.rating.create({
         data: {
           raterId: user2.id,
+          ratedUserId: user1.id,  // photo1 belongs to user1
           photoId: photo1.id,
           type: 'like'
         }
@@ -68,6 +71,7 @@ describe('Info E2E', () => {
       await db.rating.create({
         data: {
           raterId: user1.id,
+          ratedUserId: user2.id,  // photo2 belongs to user2
           photoId: photo2.id,
           type: 'normal'
         }
@@ -77,7 +81,7 @@ describe('Info E2E', () => {
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.topUsers.length).toBeGreaterThanOrEqual(1)
+      expect(data.data.topUsers.overall.length).toBeGreaterThanOrEqual(1)
     })
 
     test('includes recent events', async () => {
@@ -124,7 +128,7 @@ describe('Info E2E', () => {
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.topUsers.length).toBeLessThanOrEqual(10)
+      expect(data.data.topUsers.overall.length).toBeLessThanOrEqual(10)
     })
 
     test('limits recent events to 5', async () => {

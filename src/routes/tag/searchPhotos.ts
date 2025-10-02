@@ -5,16 +5,24 @@ import { getPhotosByTags } from '../../services/tag'
 
 export const searchPhotosByTagsRoute = new Elysia()
   .get('/search', async ({ query, set }) => {
-    if (!(query as any).tagIds || (query as any).tagIds.length === 0) {
-      set.status = 400
+    // Handle tagIds - can be single value or array
+    const tagIdsRaw = (query as any).tagIds || (query as any)['tagIds[]']
+    const tagIds = Array.isArray(tagIdsRaw) ? tagIdsRaw : (tagIdsRaw ? [tagIdsRaw] : [])
+
+    if (!tagIds || tagIds.length === 0) {
+      set.status = 422
       return { success: false, error: '請選擇至少一個標籤' }
     }
+
     try {
+      const limit = parseInt((query as any).limit) || 20
+      const offset = parseInt((query as any).offset) || 0
+
       const photos = await getPhotosByTags(
         getPrisma(),
-        (query as any).tagIds,
-        (query as any).limit || 20,
-        (query as any).offset || 0
+        tagIds,
+        limit,
+        offset
       )
       const transformed = await Promise.all(
         photos.map(async (p: any) => ({
@@ -28,12 +36,6 @@ export const searchPhotosByTagsRoute = new Elysia()
       set.status = 500
       return { success: false, error: '搜索照片失敗' }
     }
-  }, {
-    query: t.Object({
-      tagIds: t.Array(t.String()),
-      limit: t.Optional(t.Number()),
-      offset: t.Optional(t.Number())
-    })
   })
 
 

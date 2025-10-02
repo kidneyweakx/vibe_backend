@@ -171,7 +171,7 @@ describe('Tag E2E', () => {
     })
   })
 
-  describe('GET /api/tag/photos/:photoId', () => {
+  describe('GET /api/tags/photos/:photoId', () => {
     test('returns tags for photo', async () => {
       const user = await createTestUser({
         email: 'photo-tags@example.com'
@@ -194,7 +194,7 @@ describe('Tag E2E', () => {
         ]
       })
 
-      const response = await apiGet(`/tag/photos/${photo.id}`)
+      const response = await apiGet(`/tags/photos/${photo.id}`)
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -212,7 +212,7 @@ describe('Tag E2E', () => {
         key: 'test/no-tags.jpg'
       })
 
-      const response = await apiGet(`/tag/photos/${photo.id}`)
+      const response = await apiGet(`/tags/photos/${photo.id}`)
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -220,7 +220,7 @@ describe('Tag E2E', () => {
     })
   })
 
-  describe('POST /api/tag/photos/:photoId', () => {
+  describe('POST /api/tags/photos/:photoId', () => {
     test('adds tags to own photo (requireAuth)', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'add-tags@example.com',
@@ -236,7 +236,7 @@ describe('Tag E2E', () => {
       const tag2 = await createTestTag({ name: 'addtag2', displayName: 'Add Tag 2' })
 
       const response = await apiPost(
-        `/tag/photos/${photo.id}`,
+        `/tags/photos/${photo.id}`,
         {
           tagIds: [tag1.id, tag2.id]
         },
@@ -262,7 +262,7 @@ describe('Tag E2E', () => {
       const tag = await createTestTag({ name: 'tag1', displayName: 'Tag 1' })
 
       const response = await apiPost(
-        `/tag/photos/${photo.id}`,
+        `/tags/photos/${photo.id}`,
         {
           tagIds: [tag.id]
         }
@@ -282,7 +282,7 @@ describe('Tag E2E', () => {
       })
 
       const response = await apiPost(
-        `/tag/photos/${photo.id}`,
+        `/tags/photos/${photo.id}`,
         {},
         { token }
       )
@@ -301,7 +301,7 @@ describe('Tag E2E', () => {
       })
 
       const response = await apiPost(
-        `/tag/photos/${photo.id}`,
+        `/tags/photos/${photo.id}`,
         {
           tagIds: []
         },

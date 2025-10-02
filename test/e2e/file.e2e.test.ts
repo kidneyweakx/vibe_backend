@@ -220,7 +220,7 @@ describe('File E2E', () => {
 
   describe('DELETE /api/file/photos/:photoId', () => {
     test('deletes photo successfully', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'delete@example.com'
       })
 
@@ -229,7 +229,7 @@ describe('File E2E', () => {
         key: 'test/delete-me.jpg'
       })
 
-      const response = await apiDelete(`/file/photos/${photo.id}`)
+      const response = await apiDelete(`/file/photos/${photo.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -240,8 +240,26 @@ describe('File E2E', () => {
       expect(getData.data.length).toBe(0)
     })
 
+    test('requires authentication', async () => {
+      const user = await createTestUser({
+        email: 'delete-no-auth@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: user.id,
+        key: 'test/delete-me.jpg'
+      })
+
+      const response = await apiDelete(`/file/photos/${photo.id}`)
+      await expectError(response, 401)
+    })
+
     test('returns 404 for nonexistent photo', async () => {
-      const response = await apiDelete('/file/photos/nonexistent-id')
+      const { token } = await createAuthenticatedTestUser({
+        email: 'delete-not-found@example.com'
+      })
+
+      const response = await apiDelete('/file/photos/nonexistent-id', { token })
       await expectError(response, 404)
     })
   })

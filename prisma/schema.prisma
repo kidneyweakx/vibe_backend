@@ -21,6 +21,7 @@ model User {
   location     String?
   language     String?
   timezone     String?
+  isGuest      Boolean  @default(false)
   notificationsEnabled Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -35,17 +36,18 @@ model User {
 }
 
 model Photo {
-  id         String   @id @default(cuid())
-  userId     String
-  key        String   @unique // R2 storage key
-  url        String   // Public URL
-  format     String   // image format (png, jpg, etc.)
-  size       Int      // file size in bytes
-  uploadedAt DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ratings    Rating[]
-  photoTags  PhotoTag[]
-  reports    Report[]
+  id               String   @id @default(cuid())
+  userId           String
+  key              String   @unique // R2 storage key
+  url              String   // Public URL
+  format           String   // image format (png, jpg, etc.)
+  size             Int      // file size in bytes
+  isProfilePicture Boolean  @default(false)
+  uploadedAt       DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ratings          Rating[]
+  photoTags        PhotoTag[]
+  reports          Report[]
 
   @@map("photos")
 }
