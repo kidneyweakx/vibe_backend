@@ -1,7 +1,6 @@
 import getPrisma from '../../dbConfig'
-import { getPresignedGetUrl } from '../r2/presign'
+import { getPresignedGetUrl, getPublicObjectUrl } from '../r2/presign'
 
-// 請求隊列，防止並行請求過多
 const requestQueue = new Map<string, Promise<any>>()
 
 // Create logger for this module
@@ -125,7 +124,7 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
         });
         withSignedUrl.push({
           ...photo,
-          url: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${photo.key}`
+          url: getPublicObjectUrl(photo.key)
         });
       }
     }

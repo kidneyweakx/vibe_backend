@@ -12,7 +12,7 @@ export const getQrRoute = new Elysia()
       const qrData = {
         type: 'user_profile',
         userId: id,
-        url: `${process.env.FRONTEND_URL || 'https://vibe.app'}/user/${id}`,
+        url: `${process.env.FRONTEND_URL || 'https://viberank.xyz'}/user/${id}`,
         name: user.name
       }
       return { success: true, data: { qrText: JSON.stringify(qrData), displayUrl: qrData.url, userName: user.name } }

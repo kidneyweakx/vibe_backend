@@ -17,7 +17,10 @@
     "init-tags": "bun run scripts/init-tags.ts",
     "init-tags:en": "bun run scripts/init-tags-en.ts",
     "load-test": "bunx artillery run test/load-test-simple.yml -o test/load-test-report.json && node test/parse-load-report.js test/load-test-report.json",
-    "load-test:prod": "bunx artillery run test/load-test-production.yml -o test/load-test-production-report.json && node test/parse-load-report.js test/load-test-production-report.json"
+    "load-test:prod": "bunx artillery run test/load-test-production.yml -o test/load-test-production-report.json && node test/parse-load-report.js test/load-test-production-report.json",
+    "diagnose:r2": "bun run scripts/diagnose-r2.ts",
+    "cleanup:orphaned": "bun run scripts/cleanup-orphaned-photos.ts --dry-run",
+    "cleanup:orphaned:force": "bun run scripts/cleanup-orphaned-photos.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",

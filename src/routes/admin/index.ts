@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { adminMiddleware } from '../../middlewares/admin'
 import { adminPhotosRoute } from './photos'
 import { adminRankingsRoute } from './rankings'
+import { adminEventListRoute } from './eventList'
 import { adminEventDeleteRoute } from './eventDelete'
 import { adminEventUploadRoute } from './eventUpload'
 
@@ -14,5 +15,6 @@ export const adminModule = new Elysia({ prefix: '/admin' })
   .use(adminMiddleware)
   .use(adminPhotosRoute)
   .use(adminRankingsRoute)
+  .use(adminEventListRoute)
   .use(adminEventDeleteRoute)
   .use(adminEventUploadRoute)

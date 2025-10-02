@@ -47,13 +47,16 @@ export const app = new Elysia({ aot: false })
         } else {
           set.headers["Access-Control-Allow-Origin"] = "*";
         }
-        set.headers["Access-Control-Allow-Headers"] = "Authorization, X-Access-Token, Content-Type";
+        set.headers["Access-Control-Allow-Headers"] = "Authorization, X-Access-Token, X-Admin-Key, Content-Type";
         set.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
       })
       .options("/*", ({ set }: { set: any }) => {
         set.status = 204
         return null
       })
+      // Admin routes - no accessToken required, use X-Admin-Key instead
+      .use(adminModule)
+      // Regular routes - require accessToken
       .use(accessTokenMiddleware)
       .use(authRoutes)
       .use(onboardingModule)
@@ -63,7 +66,6 @@ export const app = new Elysia({ aot: false })
       .use(tagRoutes)
       .use(eventModule)
       .use(infoModule)
-      .use(adminModule)
   );
 
 export default app;
