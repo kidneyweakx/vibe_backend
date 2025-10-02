@@ -158,9 +158,9 @@ async function getUserPhotosOptimized(userId: string, page: number = 1, limit: n
   const skip = (page - 1) * limit
   
   // Filter out profile pictures from user photos
-  const whereCondition = { 
+  const whereCondition = {
     userId,
-    key: { not: { startsWith: 'profile-pictures/' } }
+    isProfilePicture: false
   }
   
   const [photos, totalCount] = await Promise.all([

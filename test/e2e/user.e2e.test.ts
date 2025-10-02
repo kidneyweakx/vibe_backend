@@ -27,13 +27,14 @@ describe('User E2E', () => {
       expect(data.data.name).toBe('Profile User')
     })
 
-    test('returns 404 for nonexistent user', async () => {
+    test('returns 403 when trying to view another user profile', async () => {
       const { token } = await createAuthenticatedTestUser({
         email: 'auth@example.com'
       })
 
+      // Trying to view another user's profile should return 403
       const response = await apiGet('/user/profile/nonexistent', { token })
-      await expectError(response, 404)
+      await expectError(response, 403)
     })
   })
 
@@ -58,16 +59,17 @@ describe('User E2E', () => {
       expect(data.data.location).toBe('San Francisco')
     })
 
-    test('fails with invalid user ID', async () => {
+    test('returns 403 when trying to update another user profile', async () => {
       const { token } = await createAuthenticatedTestUser({
         email: 'invalid@example.com'
       })
 
+      // Trying to update another user's profile should return 403
       const response = await apiPut('/user/profile/invalid', {
         name: 'Test'
       }, { token })
 
-      await expectError(response, 400)
+      await expectError(response, 403)
     })
   })
 

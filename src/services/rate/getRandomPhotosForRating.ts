@@ -47,16 +47,32 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
       setTimeout(() => reject(new Error('Database query timeout after 10 seconds')), 10000);
     });
 
+    // First, get photos with >= 2 reports to exclude
+    logger.info('Querying reported photos to filter out');
+    const reported = await getPrisma().$queryRaw<Array<{ photoId: string; reportCount: number | bigint }>>`
+      SELECT photoId, COUNT(*) as reportCount
+      FROM reports
+      GROUP BY photoId
+      HAVING COUNT(*) >= 2
+    `;
+
+    logger.info('Reported photos query completed', {
+      reportedCount: reported.length
+    });
+
+    const excludedPhotoIds = reported.map((r) => r.photoId);
+
     const dbQueryPromise = getPrisma().photo.findMany({
       where: {
         AND: [
           { userId: { not: userId } },
-          { userId: { not: { startsWith: 'guest' } } },
-          { key: { not: { startsWith: 'profile-pictures/' } } },
-          { ratings: { none: { raterId: userId } } }
+          { user: { isGuest: false } },
+          { isProfilePicture: false },
+          { ratings: { none: { raterId: userId } } },
+          { id: { notIn: excludedPhotoIds } }
         ]
       },
-      include: { 
+      include: {
         user: { select: { id: true, name: true, gender: true } }
       },
       orderBy: { uploadedAt: 'desc' },
@@ -64,36 +80,14 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
       take: limit * 8
     });
 
-    const latestPerUser = await Promise.race([dbQueryPromise, dbTimeoutPromise]);
-    
-    logger.info('Latest photos query completed', {
-      foundCount: latestPerUser.length,
-      requestedMultiplier: limit * 8
+    const candidates = await Promise.race([dbQueryPromise, dbTimeoutPromise]);
+
+    logger.info('Photos query completed with filtering', {
+      foundCount: candidates.length,
+      requestedMultiplier: limit * 8,
+      excludedReportedCount: excludedPhotoIds.length
     });
-    
-    logger.info('Querying reported photos to filter out');
-    
-    // filter out photos with >= 2 reports using raw query (avoids type coupling)
-    const reported = await getPrisma().$queryRaw<Array<{ photoId: string; reportCount: number | bigint }>>`
-      SELECT photoId, COUNT(*) as reportCount
-      FROM reports
-      GROUP BY photoId
-      HAVING COUNT(*) >= 2
-    `;
-    
-    logger.info('Reported photos query completed', {
-      reportedCount: reported.length
-    });
-    
-    const excluded = new Set(reported.map((r) => r.photoId));
-    const candidates = latestPerUser.filter((p) => !excluded.has(p.id));
-    
-    logger.info('Filtering completed', {
-      originalCount: latestPerUser.length,
-      excludedCount: excluded.size,
-      candidateCount: candidates.length
-    });
-    
+
     const shuffled = candidates.sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, limit);
     

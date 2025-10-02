@@ -22,7 +22,7 @@ export const profileInfoRoute = new Elysia()
       }
     } catch (error: any) {
       console.error('Profile info API error:', error)
-      if (error.message === 'User not found') {
+      if (error.message?.includes('User not found')) {
         set.status = 404
         return { success: false, error: 'User not found' }
       }

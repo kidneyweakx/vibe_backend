@@ -13,9 +13,13 @@ export async function apiRequest(
 ) {
   const method = options.method || 'GET'
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     'X-Access-Token': process.env.API_ACCESS_TOKEN || 'test-token',
     ...options.headers
+  }
+
+  // Only set Content-Type if there's a body
+  if (options.body) {
+    headers['Content-Type'] = 'application/json'
   }
 
   // Add JWT token if provided

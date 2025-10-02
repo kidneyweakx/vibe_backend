@@ -18,32 +18,26 @@ export const authMiddleware = new Elysia({ name: 'auth' })
 
 export const requireAuth = (app: any) =>
   app
-    .derive(async ({ headers, set, error }: any) => {
+    .derive(async ({ headers }: any) => {
       const authHeader = headers.authorization
 
       if (!authHeader?.startsWith('Bearer ')) {
-        set.status = 401
-        // Return error using Elysia's error method if available
-        if (error) return error(401, 'Authentication required')
-        throw new Error('Authentication required')
+        return { user: null, authError: 'Authentication required' }
       }
 
       const token = authHeader.substring(7)
       const user = await AuthService.getUserFromToken(token)
 
       if (!user) {
-        set.status = 401
-        if (error) return error(401, 'Invalid or expired token')
-        throw new Error('Invalid or expired token')
+        return { user: null, authError: 'Invalid or expired token' }
       }
 
-      return { user }
+      return { user, authError: null }
     })
-    .onError(({ code, error, set }: any) => {
-      // Handle authentication errors specifically
-      if (error.message === 'Authentication required' || error.message === 'Invalid or expired token') {
+    .onBeforeHandle(({ user, authError, set }: any) => {
+      if (authError) {
         set.status = 401
-        return { error: error.message }
+        return { success: false, error: authError }
       }
     })
 

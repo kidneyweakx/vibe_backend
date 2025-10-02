@@ -1,4 +1,4 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../../services/r2/presign'
 import { getPhotosByTags } from '../../services/tag'

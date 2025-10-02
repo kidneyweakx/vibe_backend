@@ -16,7 +16,14 @@ export const addPhotoTagsRoute = new Elysia()
         return { success: false, error: '照片不存在或無權限' }
       }
       await addTagsToPhoto(getPrisma(), params.photoId, (body as any).tagIds)
-      return { success: true, message: '標籤添加成功' }
+
+      // Return the added tags
+      const tags = await getPrisma().photoTag.findMany({
+        where: { photoId: params.photoId },
+        include: { tag: true }
+      })
+
+      return { success: true, data: tags.map(pt => pt.tag) }
     } catch (error) {
       console.error('添加標籤失敗:', error)
       set.status = 500
