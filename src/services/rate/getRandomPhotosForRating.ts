@@ -66,8 +66,9 @@ async function executeRandomPhotosRequest(userId: string, limit: number, startTi
       where: {
         AND: [
           { userId: { not: userId } },
-          { user: { isGuest: false } },
+          // Removed isGuest filter - guests can appear in rating pool
           { isProfilePicture: false },
+          { status: 'active' }, // Only show active photos (not hidden/deleted/pending_review)
           { ratings: { none: { raterId: userId } } },
           { id: { notIn: excludedPhotoIds } }
         ]

@@ -12,8 +12,8 @@ export async function getUserStats(userId: string) {
   const allUserStats = await getPrisma().rating.groupBy({
     by: ['ratedUserId'],
     where: {
-      type: { in: ['like', 'normal'] },
-      ratedUser: { isGuest: false }
+      type: { in: ['like', 'normal'] }
+      // Removed isGuest filter - guests included in rankings
     },
     _count: { _all: true }
   })
@@ -28,8 +28,8 @@ export async function getUserStats(userId: string) {
   if (user.gender) {
     const sameGenderUsers = await getPrisma().user.findMany({
       where: {
-        gender: user.gender,
-        isGuest: false
+        gender: user.gender
+        // Removed isGuest filter - guests included in gender rankings
       },
       select: { id: true }
     })

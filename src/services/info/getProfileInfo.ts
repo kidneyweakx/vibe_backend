@@ -3,6 +3,7 @@ import { getJourneyDashboard } from '../rate/journeyService'
 import { getPresignedGetUrl } from '../r2/presign'
 import type { PhotoListResponse, PhotoInfo } from '../interfaces/file'
 
+// Updated interface to match actual return structure (line 122-148)
 export interface ProfileInfoResponse {
   user: {
     id: string
@@ -12,7 +13,8 @@ export interface ProfileInfoResponse {
     email: string | null
     provider: string | null
   }
-  journey: {
+  // Backend returns "stats" not "journey" (see return statement line 131)
+  stats: {
     totalScore: number
     likeCount: number
     normalCount: number
@@ -28,7 +30,8 @@ export interface ProfileInfoResponse {
     nextMilestone: any
     levelProgress: any
   }
-  photos: PhotoListResponse
+  // Backend returns photos as array, not PhotoListResponse (see return statement line 147)
+  photos: any[]
 }
 
 export async function getProfileInfo(userId: string, page: number = 1, limit: number = 20): Promise<ProfileInfoResponse> {

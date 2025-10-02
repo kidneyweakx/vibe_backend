@@ -91,63 +91,57 @@ export async function getJourneyDashboard(userId: string): Promise<JourneyDashbo
     ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalRatings) * 100)
     : 0
 
-  // Get overall ranking
+  // Get overall ranking (guests now included)
   const overallRankResult = await prisma.$queryRaw<Array<{ rank: bigint }>>`
     SELECT COUNT(*) + 1 as rank
     FROM users u
     LEFT JOIN (
-      SELECT 
+      SELECT
         ratedUserId,
         COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
         COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
-      FROM ratings 
-      WHERE ratedUserId NOT LIKE 'guest%'
+      FROM ratings
       GROUP BY ratedUserId
     ) r ON u.id = r.ratedUserId
-    WHERE u.id NOT LIKE 'guest%' 
-      AND u.id != ${userId}
+    WHERE u.id != ${userId}
       AND (
-        CASE 
+        CASE
           WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
           ELSE ROUND(
-            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) / 
+            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) /
              (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
           )
         END
       ) > ${totalScore}
   `
 
-  // Get gender ranking
+  // Get gender ranking (guests now included)
   const genderRankResult = user.gender ? await prisma.$queryRaw<Array<{ rank: bigint }>>`
     SELECT COUNT(*) + 1 as rank
     FROM users u
     LEFT JOIN (
-      SELECT 
+      SELECT
         ratedUserId,
         COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
         COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
-      FROM ratings 
-      WHERE ratedUserId NOT LIKE 'guest%'
+      FROM ratings
       GROUP BY ratedUserId
     ) r ON u.id = r.ratedUserId
-    WHERE u.id NOT LIKE 'guest%' 
-      AND u.id != ${userId}
+    WHERE u.id != ${userId}
       AND u.gender = ${user.gender}
       AND (
-        CASE 
+        CASE
           WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
           ELSE ROUND(
-            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) / 
+            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) /
              (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
           )
         END
       ) > ${totalScore}
   ` : [{ rank: BigInt(0) }]
 
-  // Get total user count
-  const totalUsersResult = await prisma.user.count({
-    where: { id: { not: { startsWith: 'guest' } } }
-  })
+  // Get total user count (guests now included)
+  const totalUsersResult = await prisma.user.count()
 
   // Get gender-specific attraction data
   const [femaleLikeCount, maleLikeCount, femaleNormalCount, maleNormalCount] = await Promise.all([

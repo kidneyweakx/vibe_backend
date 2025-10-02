@@ -38,8 +38,14 @@ export interface AppleSignInData {
 }
 
 export class AuthService {
-  private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
-  private static readonly JWT_EXPIRES_IN_SECONDS = '30d' // 30d
+  private static readonly JWT_SECRET = (() => {
+    const secret = process.env.JWT_SECRET
+    if (!secret || secret === 'your-secret-key') {
+      console.warn('⚠️  WARNING: Using default JWT_SECRET. Set JWT_SECRET environment variable in production!')
+    }
+    return secret || 'your-secret-key'
+  })()
+  private static readonly JWT_EXPIRES_IN_SECONDS = '30d' // 30 days token expiration
 
   // Narrow-scope diagnostics to make Prisma/libsql config issues obvious in auth flows
   private static sanitizeDbUrlHost(urlLike: string | undefined): string {
@@ -212,7 +218,7 @@ export class AuthService {
 
   static async signInWithApple(data: AppleSignInData): Promise<AuthResponse> {
     const payload = await this.verifyAppleToken(data)
-    
+
     if (!payload) {
       throw new Error('Invalid Apple token')
     }
@@ -225,12 +231,26 @@ export class AuthService {
 
     let user
     try {
-      user = await UserService.upsertUser({
-        email: safeEmail,
-        name: payload.name || 'Apple User',
-        provider: 'apple',
-        providerId: payload.sub
-      })
+      // Check if user exists first to preserve their chosen name
+      const existingUser = await UserService.getUserByProvider('apple', payload.sub)
+
+      if (existingUser) {
+        // User exists - don't override their name with 'Apple User'
+        user = await UserService.upsertUser({
+          email: safeEmail,
+          name: existingUser.name, // Keep existing name
+          provider: 'apple',
+          providerId: payload.sub
+        })
+      } else {
+        // New user - use provided name or let them set it later in onboarding
+        user = await UserService.upsertUser({
+          email: safeEmail,
+          name: payload.name, // Don't default to 'Apple User' - let onboarding handle it
+          provider: 'apple',
+          providerId: payload.sub
+        })
+      }
     } catch (error: any) {
       this.logEnvDiagnostics('apple', { error: String(error?.message || error) })
       throw new Error(`Authentication failed: ${this.describeDbConfigIssue()}`)
@@ -243,7 +263,7 @@ export class AuthService {
         id: user.id,
         name: user.name || '',
         email: user.email,
-          profileImageURL: user.avatar ?? undefined
+        profileImageURL: user.avatar ?? undefined
       },
       token
     }

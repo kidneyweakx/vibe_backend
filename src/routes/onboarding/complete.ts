@@ -73,7 +73,8 @@ export const onboardingRoute = new Elysia()
         avatar: account.avatarUrl, // expect a key if using R2 key
         gender: demographics?.gender,
         provider: auth.provider,
-        providerId: auth.providerUserID
+        providerId: auth.providerUserID,
+        isGuest: auth.provider === 'guest'
       });
 
       logger.info('User upsert completed, updating profile fields', {

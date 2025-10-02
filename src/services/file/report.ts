@@ -1,11 +1,42 @@
 import getPrisma from '../../dbConfig'
 
-export async function createReport(params: { photoId: string; reporterId?: string; reason: string }) {
+export async function createReport(params: {
+  photoId: string
+  reporterId?: string
+  reason: string
+  details?: string
+}) {
   const prisma = getPrisma()
-  const { photoId, reporterId, reason } = params
+  const { photoId, reporterId, reason, details } = params
+
   const photo = await prisma.photo.findUnique({ where: { id: photoId } })
   if (!photo) throw new Error('Photo not found')
-  return await prisma.report.create({ data: { photoId, reporterId, reason } })
+
+  // Check if user already reported this photo
+  if (reporterId) {
+    const existingReport = await prisma.report.findUnique({
+      where: {
+        photoId_reporterId: {
+          photoId,
+          reporterId
+        }
+      }
+    })
+
+    if (existingReport) {
+      throw new Error('You have already reported this photo')
+    }
+  }
+
+  return await prisma.report.create({
+    data: {
+      photoId,
+      reporterId,
+      reason,
+      details,
+      status: 'pending'
+    }
+  })
 }
 
 export async function listReportsByPhoto(photoId: string) {

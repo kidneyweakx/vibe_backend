@@ -8,6 +8,7 @@ export interface CreateUserData {
   provider: string
   providerId: string
   passwordHash?: string
+  isGuest?: boolean
 }
 
 export async function upsertUser(data: CreateUserData) {
@@ -58,8 +59,19 @@ export async function upsertUser(data: CreateUserData) {
     const dbOperationStart = Date.now();
     const result = await prisma.user.upsert({
       where: { provider_providerId: { provider: data.provider, providerId: data.providerId } },
-      update: { email: safeEmail, name: data.name, avatar: data.avatar, gender: data.gender, updatedAt: new Date() },
-      create: { ...data, email: safeEmail }
+      update: {
+        email: safeEmail,
+        name: data.name,
+        avatar: data.avatar,
+        gender: data.gender,
+        isGuest: data.isGuest ?? false,
+        updatedAt: new Date()
+      },
+      create: {
+        ...data,
+        email: safeEmail,
+        isGuest: data.isGuest ?? false
+      }
     });
     const dbOperationDuration = Date.now() - dbOperationStart;
 

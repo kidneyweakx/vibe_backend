@@ -5,6 +5,7 @@ import { adminRankingsRoute } from './rankings'
 import { adminEventListRoute } from './eventList'
 import { adminEventDeleteRoute } from './eventDelete'
 import { adminEventUploadRoute } from './eventUpload'
+import { moderatePhotoRoute } from './moderatePhoto'
 
 /**
  * Admin module with hybrid security model:
@@ -18,3 +19,4 @@ export const adminModule = new Elysia({ prefix: '/admin' })
   .use(adminEventListRoute)
   .use(adminEventDeleteRoute)
   .use(adminEventUploadRoute)
+  .use(moderatePhotoRoute)

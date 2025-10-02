@@ -36,14 +36,14 @@ export async function getRankingList(limit: number = 50) {
     FROM users u
     LEFT JOIN (
       SELECT ratedUserId, COUNT(*) as likeCount
-      FROM ratings 
-      WHERE type = 'like' AND ratedUserId NOT LIKE 'guest%'
+      FROM ratings
+      WHERE type = 'like'
       GROUP BY ratedUserId
     ) like_stats ON u.id = like_stats.ratedUserId
     LEFT JOIN (
       SELECT ratedUserId, COUNT(*) as normalCount
-      FROM ratings 
-      WHERE type = 'normal' AND ratedUserId NOT LIKE 'guest%'
+      FROM ratings
+      WHERE type = 'normal'
       GROUP BY ratedUserId
     ) normal_stats ON u.id = normal_stats.ratedUserId
     LEFT JOIN (
@@ -57,8 +57,7 @@ export async function getRankingList(limit: number = 50) {
             AND p2.key NOT LIKE 'profile-pictures/%'
         )
     ) latest_photo ON u.id = latest_photo.userId
-    WHERE u.id NOT LIKE 'guest%'
-      AND (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0
+    WHERE (COALESCE(like_stats.likeCount, 0) + COALESCE(normal_stats.normalCount, 0)) > 0
     ORDER BY totalScore DESC
   `
 
@@ -96,10 +95,8 @@ export async function getRankingList(limit: number = 50) {
     }
   }))
 
-  // Get total users count
-  const totalUsers = await prisma.user.count({ 
-    where: { id: { not: { startsWith: 'guest' } } } 
-  })
+  // Get total users count (guests now included)
+  const totalUsers = await prisma.user.count()
 
   // Generate rankings
   const overallUsers = processedScores.slice(0, limit).map((user, index) => ({ 

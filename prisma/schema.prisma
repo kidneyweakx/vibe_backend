@@ -43,12 +43,17 @@ model Photo {
   format           String   // image format (png, jpg, etc.)
   size             Int      // file size in bytes
   isProfilePicture Boolean  @default(false)
+  status           String   @default("active") // "active" | "hidden" | "deleted" | "pending_review"
+  hiddenAt         DateTime? // When photo was hidden
+  hiddenReason     String?  // Reason for hiding: "auto_reports" | "admin_action" | "user_deleted"
   uploadedAt       DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ratings          Rating[]
   photoTags        PhotoTag[]
   reports          Report[]
 
+  @@index([status])
+  @@index([userId, status])
   @@map("photos")
 }
 
@@ -113,14 +118,20 @@ model Report {
   id         String   @id @default(cuid())
   photoId    String
   reporterId String?
-  reason     String
+  reason     String   // "inappropriate" | "spam" | "harassment" | "nudity" | "violence" | "other"
+  details    String?  // Optional detailed explanation
+  status     String   @default("pending") // "pending" | "reviewed" | "dismissed" | "action_taken"
+  reviewedAt DateTime?
+  reviewedBy String?  // Admin user ID who reviewed
   createdAt  DateTime @default(now())
 
   photo    Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
   reporter User?  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
 
+  @@unique([photoId, reporterId]) // One report per user per photo
   @@index([photoId])
   @@index([reporterId])
+  @@index([status])
   @@map("reports")
 }
 
