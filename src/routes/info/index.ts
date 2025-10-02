@@ -4,8 +4,7 @@ import { homeInfoRoute } from './homeInfo'
 import { journeyInfoRoute } from './journeyInfo'
 import { profileInfoRoute } from './profileInfo'
 
-export const infoModule = new Elysia({ prefix: '/info' })
-  .use(requireAuth)
+export const infoModule = requireAuth(new Elysia({ prefix: '/info' }))
   .use(homeInfoRoute) // GET /homeInfo - General home info
   .use(journeyInfoRoute) // GET /journeyInfo/:userId
   .use(profileInfoRoute) // GET /profileInfo/:userId

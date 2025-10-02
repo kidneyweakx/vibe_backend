@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
-import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
+import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createAuthenticatedTestUser } from '../helpers/db'
 import { apiGet, apiPut, apiDelete, expectSuccess, expectError } from '../helpers/api'
 
 describe('User E2E', () => {
@@ -13,12 +13,12 @@ describe('User E2E', () => {
 
   describe('GET /api/user/profile/:id', () => {
     test('returns user profile', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'profile@example.com',
         name: 'Profile User'
       })
 
-      const response = await apiGet(`/user/profile/${user.id}`)
+      const response = await apiGet(`/user/profile/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -28,14 +28,18 @@ describe('User E2E', () => {
     })
 
     test('returns 404 for nonexistent user', async () => {
-      const response = await apiGet('/user/profile/nonexistent')
+      const { token } = await createAuthenticatedTestUser({
+        email: 'auth@example.com'
+      })
+
+      const response = await apiGet('/user/profile/nonexistent', { token })
       await expectError(response, 404)
     })
   })
 
   describe('PUT /api/user/profile/:id', () => {
     test('updates user profile', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'update@example.com',
         name: 'Original Name'
       })
@@ -44,7 +48,7 @@ describe('User E2E', () => {
         name: 'Updated Name',
         bio: 'My bio',
         location: 'San Francisco'
-      })
+      }, { token })
 
       const data = await expectSuccess(response)
 
@@ -55,9 +59,13 @@ describe('User E2E', () => {
     })
 
     test('fails with invalid user ID', async () => {
+      const { token } = await createAuthenticatedTestUser({
+        email: 'invalid@example.com'
+      })
+
       const response = await apiPut('/user/profile/invalid', {
         name: 'Test'
-      })
+      }, { token })
 
       await expectError(response, 400)
     })
@@ -86,11 +94,11 @@ describe('User E2E', () => {
 
   describe('GET /api/user/share/:id', () => {
     test('generates shareable link', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'share@example.com'
       })
 
-      const response = await apiGet(`/user/share/${user.id}`)
+      const response = await apiGet(`/user/share/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -101,12 +109,12 @@ describe('User E2E', () => {
 
   describe('GET /api/user/qr/:id', () => {
     test('generates QR code data', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'qr@example.com',
         name: 'QR User'
       })
 
-      const response = await apiGet(`/user/qr/${user.id}`)
+      const response = await apiGet(`/user/qr/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)

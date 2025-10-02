@@ -6,6 +6,10 @@ import { getPhotoTagsRoute } from './getPhotoTags'
 import { searchPhotosByTagsRoute } from './searchPhotos'
 import { createTagRoute } from './create'
 
+const protectedTagRoutes = requireAuth(new Elysia())
+  .use(createTagRoute) // POST / - Create new tag
+  .use(addPhotoTagsRoute) // POST /photos/:photoId - Add tags to photo
+
 export const tagRoutes = new Elysia({ prefix: '/tags' })
   // Public routes (no auth required)
   .use(getAllTagsRoute) // GET / - List all tags
@@ -13,6 +17,4 @@ export const tagRoutes = new Elysia({ prefix: '/tags' })
   .use(searchPhotosByTagsRoute) // GET /search - Search photos by tags
 
   // Protected routes (auth required)
-  .use(requireAuth)
-  .use(createTagRoute) // POST / - Create new tag
-  .use(addPhotoTagsRoute) // POST /photos/:photoId - Add tags to photo
+  .use(protectedTagRoutes)

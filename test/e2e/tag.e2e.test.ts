@@ -1,22 +1,10 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
-import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createTestTag } from '../helpers/db'
+import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createTestTag, createAuthenticatedTestUser } from '../helpers/db'
 import { apiGet, apiPost, expectSuccess, expectError } from '../helpers/api'
 
 describe('Tag E2E', () => {
-  let authToken: string
-  let testUser: any
-
   beforeEach(async () => {
     await cleanDatabase()
-
-    // Create authenticated user for requireAuth tests
-    testUser = await createTestUser({
-      email: 'auth-user@example.com',
-      name: 'Auth User'
-    })
-
-    // Generate a simple token for testing (in real app, use proper JWT)
-    // For these tests, we'll pass userId in header to simulate auth
   })
 
   afterAll(async () => {
@@ -80,13 +68,18 @@ describe('Tag E2E', () => {
 
   describe('POST /api/tag/', () => {
     test('creates new tag with all fields', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-creator@example.com',
+        name: 'Tag Creator'
+      })
+
       const response = await apiPost('/tags/', {
         name: 'sunset',
         displayName: 'Sunset',
         emoji: '🌅',
         color: '#FF6B35',
         category: 'nature'
-      })
+      }, { token })
 
       const data = await expectSuccess(response)
 
@@ -98,10 +91,14 @@ describe('Tag E2E', () => {
     })
 
     test('creates tag with minimal fields', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-minimal@example.com'
+      })
+
       const response = await apiPost('/tags/', {
         name: 'minimal',
         displayName: 'Minimal Tag'
-      })
+      }, { token })
 
       const data = await expectSuccess(response)
 
@@ -110,38 +107,63 @@ describe('Tag E2E', () => {
       expect(data.data.displayName).toBe('Minimal Tag')
     })
 
+    test('requires authentication', async () => {
+      const response = await apiPost('/tags/', {
+        name: 'no-auth',
+        displayName: 'No Auth Tag'
+      })
+
+      await expectError(response, 401)
+    })
+
     test('requires name field', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-no-name@example.com'
+      })
+
       const response = await apiPost('/tags/', {
         displayName: 'No Name Tag'
-      })
+      }, { token })
 
       await expectError(response, 422)
     })
 
     test('requires displayName field', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-no-display@example.com'
+      })
+
       const response = await apiPost('/tags/', {
         name: 'no-display'
-      })
+      }, { token })
 
       await expectError(response, 422)
     })
 
     test('validates color format', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-invalid-color@example.com'
+      })
+
       const response = await apiPost('/tags/', {
         name: 'invalid-color',
         displayName: 'Invalid Color',
         color: 'not-a-color'
-      })
+      }, { token })
 
       await expectError(response, 422)
     })
 
     test('accepts valid hex color', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'tag-valid-color@example.com'
+      })
+
       const response = await apiPost('/tags/', {
         name: 'valid-color',
         displayName: 'Valid Color',
         color: '#ABCDEF'
-      })
+      }, { token })
 
       const data = await expectSuccess(response)
       expect(data.success).toBe(true)
@@ -200,61 +222,81 @@ describe('Tag E2E', () => {
 
   describe('POST /api/tag/photos/:photoId', () => {
     test('adds tags to own photo (requireAuth)', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'add-tags@example.com',
+        name: 'Tag Adder'
+      })
+
       const photo = await createTestPhoto({
-        userId: testUser.id,
+        userId: user.id,
         key: 'test/add-tags.jpg'
       })
 
       const tag1 = await createTestTag({ name: 'addtag1', displayName: 'Add Tag 1' })
       const tag2 = await createTestTag({ name: 'addtag2', displayName: 'Add Tag 2' })
 
-      // Note: This requires auth middleware, which checks for user in context
-      // The requireAuth middleware will need valid JWT token in real scenario
-      // For this test, we simulate the auth by passing user context
       const response = await apiPost(
         `/tag/photos/${photo.id}`,
         {
           tagIds: [tag1.id, tag2.id]
         },
+        { token }
+      )
+
+      const data = await expectSuccess(response)
+
+      expect(data.success).toBe(true)
+      expect(data.data.length).toBe(2)
+    })
+
+    test('requires authentication', async () => {
+      const user = await createTestUser({
+        email: 'no-auth-tags@example.com'
+      })
+
+      const photo = await createTestPhoto({
+        userId: user.id,
+        key: 'test/no-auth-tags.jpg'
+      })
+
+      const tag = await createTestTag({ name: 'tag1', displayName: 'Tag 1' })
+
+      const response = await apiPost(
+        `/tag/photos/${photo.id}`,
         {
-          Authorization: `Bearer mock-token-${testUser.id}`
+          tagIds: [tag.id]
         }
       )
 
-      // This will fail with 401 because we don't have real JWT
-      // But it tests the route registration and validation
-      const data = await response.json()
-
-      // We expect either success (if auth bypass works) or auth error
-      if (data.success) {
-        expect(data.success).toBe(true)
-      } else {
-        // Auth failure is expected without real JWT
-        expect(response.status).toBeGreaterThanOrEqual(400)
-      }
+      await expectError(response, 401)
     })
 
     test('requires tagIds array', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'no-tagids@example.com'
+      })
+
       const photo = await createTestPhoto({
-        userId: testUser.id,
+        userId: user.id,
         key: 'test/no-tagids.jpg'
       })
 
       const response = await apiPost(
         `/tag/photos/${photo.id}`,
         {},
-        {
-          Authorization: `Bearer mock-token-${testUser.id}`
-        }
+        { token }
       )
 
-      // Will fail due to validation or auth
-      expect(response.status).toBeGreaterThanOrEqual(400)
+      await expectError(response, 422)
     })
 
     test('requires non-empty tagIds array', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'empty-tagids@example.com'
+      })
+
       const photo = await createTestPhoto({
-        userId: testUser.id,
+        userId: user.id,
         key: 'test/empty-tagids.jpg'
       })
 
@@ -263,9 +305,7 @@ describe('Tag E2E', () => {
         {
           tagIds: []
         },
-        {
-          Authorization: `Bearer mock-token-${testUser.id}`
-        }
+        { token }
       )
 
       await expectError(response, 422)

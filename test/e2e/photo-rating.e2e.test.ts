@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
-import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
+import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createAuthenticatedTestUser } from '../helpers/db'
 import { apiGet, apiPost, expectSuccess, expectError } from '../helpers/api'
 
 describe('Photo Rating E2E', () => {
@@ -13,8 +13,8 @@ describe('Photo Rating E2E', () => {
 
   describe('Complete photo rating flow', () => {
     test('user can rate photos and view results', async () => {
-      // Create users
-      const rater = await createTestUser({
+      // Create authenticated rater
+      const { user: rater, token } = await createAuthenticatedTestUser({
         email: 'rater@example.com',
         name: 'Rater'
       })
@@ -40,31 +40,28 @@ describe('Photo Rating E2E', () => {
         key: 'test/photo2.jpg'
       })
 
-      // Rate photos
+      // Rate photos (raterId from authenticated user)
       const rate1 = await apiPost('/rate/photo', {
-        raterId: rater.id,
         photoId: photo1.id,
         type: 'like'
-      })
+      }, { token })
 
       const rate1Data = await expectSuccess(rate1)
       expect(rate1Data.success).toBe(true)
 
       const rate2 = await apiPost('/rate/photo', {
-        raterId: rater.id,
         photoId: photo2.id,
         type: 'normal'
-      })
+      }, { token })
 
       const rate2Data = await expectSuccess(rate2)
       expect(rate2Data.success).toBe(true)
 
       // Try to rate same photo again (should fail)
       const duplicateRate = await apiPost('/rate/photo', {
-        raterId: rater.id,
         photoId: photo1.id,
         type: 'normal'
-      })
+      }, { token })
 
       const duplicateData = await duplicateRate.json()
       expect(duplicateData.success).toBe(false)
@@ -72,7 +69,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('prevents self-rating', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'self-rate@example.com'
       })
 
@@ -82,10 +79,9 @@ describe('Photo Rating E2E', () => {
       })
 
       const response = await apiPost('/rate/photo', {
-        raterId: user.id,
         photoId: photo.id,
         type: 'like'
-      })
+      }, { token })
 
       const data = await response.json()
       expect(data.success).toBe(false)
@@ -95,7 +91,7 @@ describe('Photo Rating E2E', () => {
 
   describe('GET /api/rate/photos/random', () => {
     test('returns random photos for rating', async () => {
-      const rater = await createTestUser({
+      const { user: rater, token } = await createAuthenticatedTestUser({
         email: 'random-rater@example.com'
       })
 
@@ -108,7 +104,7 @@ describe('Photo Rating E2E', () => {
       await createTestPhoto({ userId: owner.id, key: 'test/2.jpg' })
       await createTestPhoto({ userId: owner.id, key: 'test/3.jpg' })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}&limit=2`)
+      const response = await apiGet(`/rate/photos/random?limit=2`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -121,7 +117,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('excludes already-rated photos', async () => {
-      const rater = await createTestUser({
+      const { user: rater, token } = await createAuthenticatedTestUser({
         email: 'exclude-rater@example.com'
       })
 
@@ -139,15 +135,14 @@ describe('Photo Rating E2E', () => {
         key: 'test/unrated.jpg'
       })
 
-      // Rate photo1
+      // Rate photo1 (raterId from authenticated user)
       await apiPost('/rate/photo', {
-        raterId: rater.id,
         photoId: photo1.id,
         type: 'like'
-      })
+      }, { token })
 
       // Get random photos
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}&limit=10`)
+      const response = await apiGet(`/rate/photos/random?limit=10`, { token })
       const data = await expectSuccess(response)
 
       const photoIds = data.data.map((p: any) => p.id)
@@ -161,11 +156,11 @@ describe('Photo Rating E2E', () => {
 
     test('requires userId parameter', async () => {
       const response = await apiGet('/rate/photos/random')
-      await expectError(response, 400)
+      await expectError(response, 401)
     })
 
     test('uses default limit when not specified', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'default-limit@example.com'
       })
 
@@ -178,7 +173,7 @@ describe('Photo Rating E2E', () => {
         await createTestPhoto({ userId: owner.id, key: `test/default${i}.jpg` })
       }
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -187,11 +182,11 @@ describe('Photo Rating E2E', () => {
     })
 
     test('returns empty array when no photos available', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'empty-rater@example.com'
       })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -199,7 +194,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('excludes photos from guest users', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'guest-test@example.com'
       })
 
@@ -223,7 +218,7 @@ describe('Photo Rating E2E', () => {
       await createTestPhoto({ userId: guestUser.id, key: 'test/guest.jpg' })
       await createTestPhoto({ userId: normalUser.id, key: 'test/normal.jpg' })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -233,7 +228,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('excludes profile pictures', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'profile-test@example.com'
       })
 
@@ -256,7 +251,7 @@ describe('Photo Rating E2E', () => {
 
       await createTestPhoto({ userId: owner.id, key: 'test/regular.jpg' })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -267,7 +262,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('returns one photo per user', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'distinct-test@example.com'
       })
 
@@ -285,7 +280,7 @@ describe('Photo Rating E2E', () => {
       await createTestPhoto({ userId: owner2.id, key: 'test/b1.jpg' })
       await createTestPhoto({ userId: owner2.id, key: 'test/b2.jpg' })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}&limit=10`)
+      const response = await apiGet(`/rate/photos/random?limit=10`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -297,11 +292,11 @@ describe('Photo Rating E2E', () => {
     })
 
     test('handles timeout gracefully', async () => {
-      const rater = await createTestUser({
+      const { token } = await createAuthenticatedTestUser({
         email: 'timeout-test@example.com'
       })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token })
 
       // Should either succeed or timeout with 504
       if (response.status === 504) {
@@ -315,7 +310,7 @@ describe('Photo Rating E2E', () => {
     })
 
     test('excludes photos with 2 or more reports', async () => {
-      const rater = await createTestUser({
+      const { token: raterToken } = await createAuthenticatedTestUser({
         email: 'reported-test@example.com'
       })
 
@@ -323,11 +318,11 @@ describe('Photo Rating E2E', () => {
         email: 'reported-owner@example.com'
       })
 
-      const reporter1 = await createTestUser({
+      const { token: reporter1Token } = await createAuthenticatedTestUser({
         email: 'reporter1@example.com'
       })
 
-      const reporter2 = await createTestUser({
+      const { token: reporter2Token } = await createAuthenticatedTestUser({
         email: 'reporter2@example.com'
       })
 
@@ -341,20 +336,18 @@ describe('Photo Rating E2E', () => {
         key: 'test/clean.jpg'
       })
 
-      // Add 2 reports to first photo
+      // Add 2 reports to first photo (reporterId from authenticated user)
       await apiPost('/file/report', {
         photoId: reportedPhoto.id,
-        reporterId: reporter1.id,
         reason: 'inappropriate'
-      })
+      }, { token: reporter1Token })
 
       await apiPost('/file/report', {
         photoId: reportedPhoto.id,
-        reporterId: reporter2.id,
         reason: 'spam'
-      })
+      }, { token: reporter2Token })
 
-      const response = await apiGet(`/rate/photos/random?userId=${rater.id}`)
+      const response = await apiGet(`/rate/photos/random`, { token: raterToken })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -368,15 +361,15 @@ describe('Photo Rating E2E', () => {
 
   describe('GET /api/info/journeyInfo/:userId', () => {
     test('returns rating statistics', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'journey@example.com'
       })
 
-      const rater1 = await createTestUser({
+      const { user: rater1, token: rater1Token } = await createAuthenticatedTestUser({
         email: 'rater1@example.com'
       })
 
-      const rater2 = await createTestUser({
+      const { user: rater2, token: rater2Token } = await createAuthenticatedTestUser({
         email: 'rater2@example.com'
       })
 
@@ -385,20 +378,18 @@ describe('Photo Rating E2E', () => {
         key: 'test/journey.jpg'
       })
 
-      // Get some ratings
+      // Get some ratings (raterId from authenticated user)
       await apiPost('/rate/photo', {
-        raterId: rater1.id,
         photoId: photo.id,
         type: 'like'
-      })
+      }, { token: rater1Token })
 
       await apiPost('/rate/photo', {
-        raterId: rater2.id,
         photoId: photo.id,
         type: 'normal'
-      })
+      }, { token: rater2Token })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)

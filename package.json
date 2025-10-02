@@ -3,7 +3,6 @@
   "version": "1.0.50",
   "scripts": {
     "test": "bun test",
-    "test:services-coverage": "bun test 2>&1 | grep -E '^ src/services/'",
     "test:unit": "bun test test/unit",
     "test:e2e": "bun test test/e2e",
     "test:watch": "bun test --watch",

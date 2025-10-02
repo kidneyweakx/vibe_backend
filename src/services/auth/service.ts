@@ -39,7 +39,7 @@ export interface AppleSignInData {
 
 export class AuthService {
   private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
-  private static readonly JWT_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 30 // 30d
+  private static readonly JWT_EXPIRES_IN_SECONDS = '30d' // 30d
 
   // Narrow-scope diagnostics to make Prisma/libsql config issues obvious in auth flows
   private static sanitizeDbUrlHost(urlLike: string | undefined): string {

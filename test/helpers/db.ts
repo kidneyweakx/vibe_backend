@@ -96,3 +96,25 @@ export async function createTestTag(data: {
     }
   })
 }
+
+/**
+ * Create a test user and return with JWT token for authenticated API calls
+ */
+export async function createAuthenticatedTestUser(data?: {
+  email?: string
+  name?: string
+  provider?: string
+}) {
+  const { generateTestToken } = await import('./api')
+
+  const user = await createTestUser({
+    email: data?.email || `test-${Date.now()}@example.com`,
+    name: data?.name || 'Test User',
+    provider: data?.provider || 'test',
+    providerId: data?.email || `test-${Date.now()}`
+  })
+
+  const token = await generateTestToken(user.id)
+
+  return { user, token }
+}

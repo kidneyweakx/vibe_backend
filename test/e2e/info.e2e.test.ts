@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
-import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto } from '../helpers/db'
+import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createAuthenticatedTestUser } from '../helpers/db'
 import { apiGet, apiPost, expectSuccess, expectError } from '../helpers/api'
 
 describe('Info E2E', () => {
@@ -13,7 +13,12 @@ describe('Info E2E', () => {
 
   describe('GET /api/info/homeInfo', () => {
     test('returns home info with rankings and events', async () => {
-      const response = await apiGet('/info/homeInfo')
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'homeinfo@example.com',
+        name: 'Home Info User'
+      })
+
+      const response = await apiGet('/info/homeInfo', { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -24,6 +29,11 @@ describe('Info E2E', () => {
     })
 
     test('includes top ranked users', async () => {
+      const { user: authUser, token } = await createAuthenticatedTestUser({
+        email: 'homeinfo-ranked@example.com',
+        name: 'Auth User'
+      })
+
       // Create users with photos and ratings
       const user1 = await createTestUser({
         email: 'ranked1@example.com',
@@ -63,7 +73,7 @@ describe('Info E2E', () => {
         }
       })
 
-      const response = await apiGet('/info/homeInfo')
+      const response = await apiGet('/info/homeInfo', { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -71,6 +81,10 @@ describe('Info E2E', () => {
     })
 
     test('includes recent events', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'homeinfo-events@example.com'
+      })
+
       const db = await import('../../src/dbConfig').then(m => m.default())
 
       await db.event.create({
@@ -85,7 +99,7 @@ describe('Info E2E', () => {
         }
       })
 
-      const response = await apiGet('/info/homeInfo')
+      const response = await apiGet('/info/homeInfo', { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -94,6 +108,10 @@ describe('Info E2E', () => {
     })
 
     test('limits top users to 10', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'homeinfo-limit@example.com'
+      })
+
       // Create 15 users
       for (let i = 1; i <= 15; i++) {
         await createTestUser({
@@ -102,7 +120,7 @@ describe('Info E2E', () => {
         })
       }
 
-      const response = await apiGet('/info/homeInfo')
+      const response = await apiGet('/info/homeInfo', { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -110,6 +128,10 @@ describe('Info E2E', () => {
     })
 
     test('limits recent events to 5', async () => {
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'homeinfo-events-limit@example.com'
+      })
+
       const db = await import('../../src/dbConfig').then(m => m.default())
 
       // Create 10 events
@@ -127,16 +149,26 @@ describe('Info E2E', () => {
         })
       }
 
-      const response = await apiGet('/info/homeInfo')
+      const response = await apiGet('/info/homeInfo', { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
       expect(data.data.recentEvents.length).toBeLessThanOrEqual(5)
     })
+
+    test('requires authentication', async () => {
+      const response = await apiGet('/info/homeInfo')
+      await expectError(response, 401)
+    })
   })
 
   describe('GET /api/info/profileInfo/:userId', () => {
     test('returns complete profile info', async () => {
+      const { user: authUser, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-auth@example.com',
+        name: 'Auth User'
+      })
+
       const user = await createTestUser({
         email: 'profile@example.com',
         name: 'Profile User',
@@ -148,7 +180,7 @@ describe('Info E2E', () => {
       await createTestPhoto({ userId: user.id, key: 'test/photo1.jpg' })
       await createTestPhoto({ userId: user.id, key: 'test/photo2.jpg' })
 
-      const response = await apiGet(`/info/profileInfo/${user.id}`)
+      const response = await apiGet(`/info/profileInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -159,18 +191,39 @@ describe('Info E2E', () => {
       expect(data.data.photos).toBeDefined()
     })
 
+    test('requires authentication', async () => {
+      const user = await createTestUser({
+        email: 'profile-no-auth@example.com'
+      })
+
+      const response = await apiGet(`/info/profileInfo/${user.id}`)
+      await expectError(response, 401)
+    })
+
     test('returns 404 for nonexistent user', async () => {
-      const response = await apiGet('/info/profileInfo/nonexistent-user-id')
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-404@example.com'
+      })
+
+      const response = await apiGet('/info/profileInfo/nonexistent-user-id', { token })
       await expectError(response, 404)
     })
 
     test('requires userId parameter', async () => {
-      const response = await apiGet('/info/profileInfo/')
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-no-id@example.com'
+      })
+
+      const response = await apiGet('/info/profileInfo/', { token })
       // This should return 404 as route doesn't match
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
 
     test('includes pagination for photos', async () => {
+      const { user: authUser, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-page@example.com'
+      })
+
       const user = await createTestUser({
         email: 'paginated@example.com',
         name: 'Paginated User'
@@ -184,7 +237,7 @@ describe('Info E2E', () => {
         })
       }
 
-      const response = await apiGet(`/info/profileInfo/${user.id}?page=1&limit=5`)
+      const response = await apiGet(`/info/profileInfo/${user.id}?page=1&limit=5`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -193,12 +246,16 @@ describe('Info E2E', () => {
     })
 
     test('respects maximum limit of 60 photos', async () => {
+      const { user: authUser, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-maxlimit@example.com'
+      })
+
       const user = await createTestUser({
         email: 'max-limit@example.com',
         name: 'Max Limit User'
       })
 
-      const response = await apiGet(`/info/profileInfo/${user.id}?limit=100`)
+      const response = await apiGet(`/info/profileInfo/${user.id}?limit=100`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -207,6 +264,10 @@ describe('Info E2E', () => {
     })
 
     test('handles page parameter', async () => {
+      const { user: authUser, token } = await createAuthenticatedTestUser({
+        email: 'profileinfo-pageparam@example.com'
+      })
+
       const user = await createTestUser({
         email: 'page-param@example.com',
         name: 'Page User'
@@ -219,7 +280,7 @@ describe('Info E2E', () => {
         })
       }
 
-      const response = await apiGet(`/info/profileInfo/${user.id}?page=2&limit=2`)
+      const response = await apiGet(`/info/profileInfo/${user.id}?page=2&limit=2`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -230,12 +291,12 @@ describe('Info E2E', () => {
 
   describe('GET /api/info/journeyInfo/:userId', () => {
     test('returns journey dashboard data', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'journey@example.com',
         name: 'Journey User'
       })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -246,18 +307,32 @@ describe('Info E2E', () => {
       expect(typeof data.data.totalRatings).toBe('number')
     })
 
+    test('requires authentication', async () => {
+      const user = await createTestUser({
+        email: 'journey-no-auth@example.com'
+      })
+
+      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      await expectError(response, 401)
+    })
+
     test('calculates scores from ratings', async () => {
+      const { user: authUser, token: authToken } = await createAuthenticatedTestUser({
+        email: 'journey-auth@example.com',
+        name: 'Auth User'
+      })
+
       const owner = await createTestUser({
         email: 'owner@example.com',
         name: 'Photo Owner'
       })
 
-      const rater1 = await createTestUser({
+      const { user: rater1, token: token1 } = await createAuthenticatedTestUser({
         email: 'rater1@example.com',
         name: 'Rater 1'
       })
 
-      const rater2 = await createTestUser({
+      const { user: rater2, token: token2 } = await createAuthenticatedTestUser({
         email: 'rater2@example.com',
         name: 'Rater 2'
       })
@@ -267,20 +342,18 @@ describe('Info E2E', () => {
         key: 'test/scored.jpg'
       })
 
-      // Add ratings
+      // Add ratings (raterId comes from authenticated user, not body)
       await apiPost('/rate/photo', {
-        raterId: rater1.id,
         photoId: photo.id,
         type: 'like'
-      })
+      }, { token: token1 })
 
       await apiPost('/rate/photo', {
-        raterId: rater2.id,
         photoId: photo.id,
         type: 'normal'
-      })
+      }, { token: token2 })
 
-      const response = await apiGet(`/info/journeyInfo/${owner.id}`)
+      const response = await apiGet(`/info/journeyInfo/${owner.id}`, { token: authToken })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -289,22 +362,30 @@ describe('Info E2E', () => {
     })
 
     test('requires userId parameter', async () => {
-      const response = await apiGet('/info/journeyInfo/')
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'journey-no-userid@example.com'
+      })
+
+      const response = await apiGet('/info/journeyInfo/', { token })
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
 
     test('returns 400 for missing userId', async () => {
-      const response = await apiGet('/info/journeyInfo/')
+      const { user, token } = await createAuthenticatedTestUser({
+        email: 'journey-missing-userid@example.com'
+      })
+
+      const response = await apiGet('/info/journeyInfo/', { token })
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
 
     test('handles user with no photos', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'no-photos@example.com',
         name: 'No Photos User'
       })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -313,7 +394,7 @@ describe('Info E2E', () => {
     })
 
     test('handles user with photos but no ratings', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'no-ratings@example.com',
         name: 'No Ratings User'
       })
@@ -323,7 +404,7 @@ describe('Info E2E', () => {
         key: 'test/unrated.jpg'
       })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -332,12 +413,12 @@ describe('Info E2E', () => {
     })
 
     test('includes rank information', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'ranked@example.com',
         name: 'Ranked User'
       })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -346,12 +427,12 @@ describe('Info E2E', () => {
     })
 
     test('handles timeout protection', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'timeout@example.com',
         name: 'Timeout User'
       })
 
-      const response = await apiGet(`/info/journeyInfo/${user.id}`)
+      const response = await apiGet(`/info/journeyInfo/${user.id}`, { token })
 
       // Should either succeed or timeout with 504
       if (response.status === 504) {

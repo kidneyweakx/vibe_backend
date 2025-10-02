@@ -3,7 +3,6 @@ import { requireAuth } from '../../middlewares/auth'
 import { ratePhotoRoute } from './ratePhoto'
 import { randomPhotosRoute } from './randomPhotos'
 
-export const rateModule = new Elysia({ prefix: '/rate' })
-  .use(requireAuth)
+export const rateModule = requireAuth(new Elysia({ prefix: '/rate' }))
   .use(ratePhotoRoute) // POST /photo
   .use(randomPhotosRoute) // GET /random

@@ -1,4 +1,5 @@
 import app from '../../src/app'
+import { AuthService } from '../../src/services/auth/service'
 
 // Real API testing - no mocking, just clean request/response
 export async function apiRequest(
@@ -7,6 +8,7 @@ export async function apiRequest(
     method?: string
     body?: any
     headers?: Record<string, string>
+    token?: string // Optional JWT token for authenticated requests
   } = {}
 ) {
   const method = options.method || 'GET'
@@ -14,6 +16,11 @@ export async function apiRequest(
     'Content-Type': 'application/json',
     'X-Access-Token': process.env.API_ACCESS_TOKEN || 'test-token',
     ...options.headers
+  }
+
+  // Add JWT token if provided
+  if (options.token) {
+    headers['Authorization'] = `Bearer ${options.token}`
   }
 
   const request = new Request(`http://localhost/api${path}`, {
@@ -25,31 +32,38 @@ export async function apiRequest(
   return app.handle(request)
 }
 
-export async function apiGet(path: string, headers?: Record<string, string>) {
-  return apiRequest(path, { method: 'GET', headers })
+/**
+ * Generate a JWT token for a test user
+ */
+export async function generateTestToken(userId: string): Promise<string> {
+  return AuthService.generateJWTAsync(userId)
+}
+
+export async function apiGet(path: string, options?: { headers?: Record<string, string>; token?: string }) {
+  return apiRequest(path, { method: 'GET', ...options })
 }
 
 export async function apiPost(
   path: string,
   body: any,
-  headers?: Record<string, string>
+  options?: { headers?: Record<string, string>; token?: string }
 ) {
-  return apiRequest(path, { method: 'POST', body, headers })
+  return apiRequest(path, { method: 'POST', body, ...options })
 }
 
 export async function apiPut(
   path: string,
   body: any,
-  headers?: Record<string, string>
+  options?: { headers?: Record<string, string>; token?: string }
 ) {
-  return apiRequest(path, { method: 'PUT', body, headers })
+  return apiRequest(path, { method: 'PUT', body, ...options })
 }
 
 export async function apiDelete(
   path: string,
-  headers?: Record<string, string>
+  options?: { headers?: Record<string, string>; token?: string }
 ) {
-  return apiRequest(path, { method: 'DELETE', headers })
+  return apiRequest(path, { method: 'DELETE', ...options })
 }
 
 export async function expectSuccess(response: Response) {

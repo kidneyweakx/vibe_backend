@@ -160,3 +160,64 @@ When adding new features:
 - `src/env.ts`: Cross-runtime environment variable handling
 - `prisma/schema.prisma`: Database schema
 - `wrangler.toml`: Cloudflare Workers configuration with D1 and R2 bindings
+
+# Important Instructions
+
+## Testing Guidelines
+
+### Running Tests
+- **ALWAYS** use `bun test` to run tests - this is the canonical test command
+- **NEVER** create shell scripts (.sh files) to run tests
+- Use existing package.json scripts:
+  - `bun test` - Run all tests (unit + e2e)
+  - `bun test --watch` - Watch mode
+  - `bun test --coverage` - Generate coverage report
+  - `bun test test/unit` - Run only unit tests
+  - `bun test test/e2e` - Run only e2e tests
+
+### Test Configuration
+- Test setup is in `test/setup.ts` (automatically loaded via bunfig.toml preload)
+- Test database uses SQLite (`prisma/test.db`)
+- Coverage thresholds and settings are in `bunfig.toml`
+- Use helper functions from `test/helpers/api.ts` and `test/helpers/db.ts`
+
+### Writing Tests
+- No cheating (mock) in test, generate a test env to test
+- Place unit tests in `test/unit/{module}.service.test.ts`
+- Place e2e tests in `test/e2e/{module}.e2e.test.ts`
+- Use `createTestDb()` and `cleanupTestDb()` for database isolation
+- Use `apiGet()`, `apiPost()`, `apiPut()`, `apiDelete()` helpers for API calls
+- Use `expectSuccess()` and `expectError()` for response validation
+- Always clean up test data in `afterEach` or `afterAll` hooks
+
+### Test Authentication
+- Most routes now require authentication via `requireAuth` middleware
+- Use `authMiddleware` to extract user from JWT token
+- Tests must provide valid JWT tokens or mock authenticated user context
+- Routes that previously accepted `userId` in body now get it from `user.id` in context
+
+## Development Best Practices
+
+### Code Organization
+- **NEVER** create shell scripts unless absolutely necessary
+- **ALWAYS** prefer TypeScript files in `scripts/` directory over shell scripts
+- Use `bun run` for all custom commands (defined in package.json)
+- Keep all build/deploy/test logic in package.json scripts or TypeScript files
+
+### File Creation Policy
+- **NEVER** proactively create documentation files (*.md) or README files
+- **ALWAYS** prefer editing existing files over creating new ones
+- Only create new files when explicitly requested or absolutely necessary
+- Do not create redundant configuration files
+
+### Script Management
+- All scripts should be runnable via `bun run <script-name>`
+- Database scripts go in `scripts/` directory (*.ts files)
+- Use TypeScript for maintainability and type safety
+- Examples: `scripts/init-tags.ts`, `scripts/cleanup-r2dev.ts`
+
+### Environment Variables
+- Never commit `.env` files
+- Use `.env.example` as template
+- Required vars: `DATABASE_URL`, `API_ACCESS_TOKEN`, R2 configuration
+- Optional vars: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
