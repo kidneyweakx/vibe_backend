@@ -66,14 +66,14 @@ describe('Tag E2E', () => {
     })
   })
 
-  describe('POST /api/tag/', () => {
+  describe('POST /api/admin/tag', () => {
     test('creates new tag with all fields', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'tag-creator@example.com',
         name: 'Tag Creator'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         name: 'sunset',
         displayName: 'Sunset',
         emoji: '🌅',
@@ -95,7 +95,7 @@ describe('Tag E2E', () => {
         email: 'tag-minimal@example.com'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         name: 'minimal',
         displayName: 'Minimal Tag'
       }, { token })
@@ -107,13 +107,13 @@ describe('Tag E2E', () => {
       expect(data.data.displayName).toBe('Minimal Tag')
     })
 
-    test('requires authentication', async () => {
+    test('public tag creation route is unavailable', async () => {
       const response = await apiPost('/tags/', {
         name: 'no-auth',
         displayName: 'No Auth Tag'
       })
 
-      await expectError(response, 401)
+      expect(response.status).toBe(404)
     })
 
     test('requires name field', async () => {
@@ -121,7 +121,7 @@ describe('Tag E2E', () => {
         email: 'tag-no-name@example.com'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         displayName: 'No Name Tag'
       }, { token })
 
@@ -133,7 +133,7 @@ describe('Tag E2E', () => {
         email: 'tag-no-display@example.com'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         name: 'no-display'
       }, { token })
 
@@ -145,7 +145,7 @@ describe('Tag E2E', () => {
         email: 'tag-invalid-color@example.com'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         name: 'invalid-color',
         displayName: 'Invalid Color',
         color: 'not-a-color'
@@ -159,7 +159,7 @@ describe('Tag E2E', () => {
         email: 'tag-valid-color@example.com'
       })
 
-      const response = await apiPost('/tags/', {
+      const response = await apiPost('/admin/tag', {
         name: 'valid-color',
         displayName: 'Valid Color',
         color: '#ABCDEF'

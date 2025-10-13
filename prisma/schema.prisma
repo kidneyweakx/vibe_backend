@@ -9,35 +9,61 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           Int      @id @default(autoincrement())
   email        String   @unique
   name         String?
   avatar       String?
   gender       String?  // "male" | "female" | "other"
-  provider     String   // "google" | "apple" | "password" | "test"
-  providerId   String   // OAuth provider user ID or email for password auth
-  passwordHash String?  // For password authentication
+  provider     String?  // "google" | "apple" | "guest" | null (deleted)
+  providerId   String?  // OAuth provider user ID, null for guest or deleted
+  passwordHash String?
+  deviceId     String?  // Device identifier for guest users
   bio          String?
   location     String?
   language     String?
   timezone     String?
   isGuest      Boolean  @default(false)
+  isDeleted    Boolean  @default(false) // Soft delete flag
   notificationsEnabled Boolean @default(false)
+  
+  // Onboarding data (merged from separate table)
+  ageRange     String?  // Age range from onboarding
+  vibeLevel    Int      @default(0)
+  timeInvestmentHours Int @default(0)
+  tosVersion   String?
+  privacyVersion String?
+  onboardedAt  DateTime? // When onboarding was completed
+
+  // Materialized rating stats for performance
+  eloRating    Float    @default(1500.0) // Elo-like rating (1000-2000 range)
+  totalScore   Int      @default(0)      // Cached score (0-100)
+  likeCount    Int      @default(0)      // Cached like count
+  normalCount  Int      @default(0)      // Cached normal count
+  totalRatings Int      @default(0)      // Cached total ratings
+  lastRatedAt  DateTime? // Last time this user received a rating
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deletedAt    DateTime? // When account was deleted
   photos       Photo[]
   givenRatings Rating[] @relation("RaterUser")
   receivedRatings Rating[] @relation("RatedUser")
   reportsSubmitted Report[] @relation("ReportReporter")
-  onboarding   Onboarding?
 
   @@unique([provider, providerId])
+  @@unique([deviceId])
+  @@index([eloRating(sort: Desc)])
+  @@index([totalScore(sort: Desc)])
+  @@index([gender, eloRating(sort: Desc)])
+  @@index([isGuest, isDeleted, eloRating(sort: Desc)]) // Combined for better query performance
+  @@index([isDeleted, lastRatedAt(sort: Desc)]) // For active user queries
+  @@index([createdAt(sort: Desc)]) // For new user queries
   @@map("users")
 }
 
 model Photo {
   id               String   @id @default(cuid())
-  userId           String
+  userId           Int
   key              String   @unique // R2 storage key
   url              String   // Public URL
   format           String   // image format (png, jpg, etc.)
@@ -53,25 +79,34 @@ model Photo {
   photoTags        PhotoTag[]
   reports          Report[]
 
-  @@index([status])
-  @@index([userId, status])
-  @@index([userId, takenAt])
+  @@index([status, uploadedAt(sort: Desc)]) // For fetching active photos
+  @@index([userId, status, takenAt(sort: Desc)]) // Combined for user photo queries
+  @@index([userId, isProfilePicture, status]) // For profile picture queries
+  @@index([uploadedAt(sort: Desc)]) // For recent photos
   @@map("photos")
 }
 
 model Rating {
   id        String   @id @default(cuid())
-  raterId   String   // 評分者
-  ratedUserId String // 被評分者
+  raterId   Int      // 評分者
+  ratedUserId Int    // 被評分者
   photoId   String   // 被評分的照片
   type      String   // "like" (❤️) or "normal" (🔄)
+
+  // For recommendation system - similarity metrics
+  raterEloAtTime   Float? // Rater's Elo at time of rating (for weighting)
+
   createdAt DateTime @default(now())
-  
+
   rater     User     @relation("RaterUser", fields: [raterId], references: [id], onDelete: Cascade)
   ratedUser User     @relation("RatedUser", fields: [ratedUserId], references: [id], onDelete: Cascade)
   photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
 
   @@unique([raterId, photoId]) // 每個人對每張照片只能評分一次
+  @@index([raterId, type, createdAt(sort: Desc)]) // For user preference and recent analysis
+  @@index([ratedUserId, createdAt(sort: Desc)]) // For recent ratings received
+  @@index([photoId, type]) // For photo stats
+  @@index([createdAt(sort: Desc)]) // For time-based queries
   @@map("ratings")
 }
 
@@ -120,12 +155,12 @@ model Event {
 model Report {
   id         String   @id @default(cuid())
   photoId    String
-  reporterId String?
+  reporterId Int?
   reason     String   // "inappropriate" | "spam" | "harassment" | "nudity" | "violence" | "other"
   details    String?  // Optional detailed explanation
   status     String   @default("pending") // "pending" | "reviewed" | "dismissed" | "action_taken"
   reviewedAt DateTime?
-  reviewedBy String?  // Admin user ID who reviewed
+  reviewedBy Int?     // Admin user ID who reviewed
   createdAt  DateTime @default(now())
 
   photo    Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
@@ -136,22 +171,4 @@ model Report {
   @@index([reporterId])
   @@index([status])
   @@map("reports")
-}
-
-model Onboarding {
-  id                   String   @id @default(cuid())
-  userId               String   @unique
-  ageRange             String
-  vibeLevel            Int
-  timeInvestmentHours  Int
-  notificationsEnabled Boolean
-  tosVersion           String
-  privacyVersion       String
-  acceptedAt           DateTime
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("onboarding")
 }

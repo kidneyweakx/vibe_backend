@@ -4,11 +4,9 @@ import { getAllTagsRoute } from './getAll'
 import { addPhotoTagsRoute } from './addPhotoTags'
 import { getPhotoTagsRoute } from './getPhotoTags'
 import { searchPhotosByTagsRoute } from './searchPhotos'
-import { createTagRoute } from './create'
 
 const protectedTagRoutes = requireAuth(new Elysia())
-  .use(createTagRoute) // POST / - Create new tag
-  .use(addPhotoTagsRoute) // POST /photos/:photoId - Add tags to photo
+  .use(addPhotoTagsRoute) // POST /photos/:photoId - Add tags to photo (user can tag their own photos)
 
 export const tagRoutes = new Elysia({ prefix: '/tags' })
   // Public routes (no auth required)

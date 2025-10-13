@@ -56,6 +56,10 @@ wrangler.toml
 *.db-wal
 prisma/dev.db
 prisma/test.db
+prisma/test-init.sql
+
+# Backups
+backups/
 
 # Test reports
 test/*-report.json

@@ -8,7 +8,6 @@ import { eventModule } from "./routes/event";
 import { infoModule } from "./routes/info";
 import { accessTokenMiddleware } from "./middlewares/accessToken";
 import { adminModule } from "./routes/admin";
-import { onboardingModule } from "./routes/onboarding";
 
 // Enhanced logging utility
 const createLogger = (context: string) => ({
@@ -59,7 +58,6 @@ export const app = new Elysia({ aot: false })
       // Regular routes - require accessToken
       .use(accessTokenMiddleware)
       .use(authRoutes)
-      .use(onboardingModule)
       .use(userRoutes)
       .use(fileModule)
       .use(rateModule)

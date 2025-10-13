@@ -6,6 +6,8 @@ import { adminEventListRoute } from './eventList'
 import { adminEventDeleteRoute } from './eventDelete'
 import { adminEventUploadRoute } from './eventUpload'
 import { moderatePhotoRoute } from './moderatePhoto'
+import { backfillRoutes } from './backfill'
+import { adminTagRoutes } from './tags'
 
 /**
  * Admin module with hybrid security model:
@@ -20,3 +22,5 @@ export const adminModule = new Elysia({ prefix: '/admin' })
   .use(adminEventDeleteRoute)
   .use(adminEventUploadRoute)
   .use(moderatePhotoRoute)
+  .use(backfillRoutes)
+  .use(adminTagRoutes)

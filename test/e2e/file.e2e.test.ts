@@ -11,24 +11,24 @@ describe('File E2E', () => {
     await closeDatabase()
   })
 
-  describe('POST /api/file/presign', () => {
+  describe('POST /api/file/upload-url', () => {
     test('creates presigned URL with userId', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'presign@example.com',
         name: 'Presign User'
       })
 
-      const response = await apiPost('/file/presign', {
+      const response = await apiPost('/file/upload-url', {
         contentType: 'image/jpeg'
       }, { token })
 
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.url).toBeDefined()
-      expect(data.data.key).toBeDefined()
-      expect(data.data.headers).toBeDefined()
-      expect(data.data.headers['Content-Type']).toContain('image/')
+      expect(typeof data.uploadUrl).toBe('string')
+      expect(data.key).toBeDefined()
+      expect(data.headers).toBeDefined()
+      expect(data.headers['Content-Type']).toContain('image/')
     })
 
     test('creates presigned URL with custom key', async () => {
@@ -37,7 +37,7 @@ describe('File E2E', () => {
       })
 
       const customKey = `${user.id}/custom-photo.jpg`
-      const response = await apiPost('/file/presign', {
+      const response = await apiPost('/file/upload-url', {
         key: customKey,
         contentType: 'image/jpeg'
       }, { token })
@@ -45,11 +45,11 @@ describe('File E2E', () => {
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.key).toBe(customKey)
+      expect(data.key).toBe(customKey)
     })
 
     test('requires authentication', async () => {
-      const response = await apiPost('/file/presign', {
+      const response = await apiPost('/file/upload-url', {
         contentType: 'image/jpeg'
       })
 
@@ -61,18 +61,18 @@ describe('File E2E', () => {
         email: 'presign-png@example.com'
       })
 
-      const response = await apiPost('/file/presign', {
+      const response = await apiPost('/file/upload-url', {
         contentType: 'image/png'
       }, { token })
 
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.headers['Content-Type']).toBe('image/png')
+      expect(data.headers['Content-Type']).toBe('image/png')
     })
   })
 
-  describe('POST /api/file/photos/upload', () => {
+  describe('POST /api/file/upload', () => {
     test('uploads photo with base64 data', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'upload@example.com'
@@ -81,21 +81,22 @@ describe('File E2E', () => {
       // Small test base64 image (1x1 pixel PNG)
       const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-      const response = await apiPost('/file/photos/upload', {
+      const response = await apiPost('/file/upload', {
         imageData: base64Image,
-        format: 'png'
+        contentType: 'image/png'
       }, { token })
 
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.id).toBeDefined()
-      expect(data.data.userId).toBe(user.id)
+      expect(data.photo.id).toBeDefined()
+      expect(data.photo.userId).toBe(user.id)
     })
 
     test('requires authentication', async () => {
-      const response = await apiPost('/file/photos/upload', {
-        imageData: 'data:image/png;base64,abc123'
+      const response = await apiPost('/file/upload', {
+        imageData: 'data:image/png;base64,abc123',
+        contentType: 'image/png'
       })
 
       await expectError(response, 401)
@@ -106,15 +107,14 @@ describe('File E2E', () => {
         email: 'upload-no-data@example.com'
       })
 
-      const response = await apiPost('/file/photos/upload', {
+      const response = await apiPost('/file/upload', {
       }, { token })
 
-      // Elysia schema validation returns 422 for missing required fields
       await expectError(response, 422)
     })
   })
 
-  describe('POST /api/file/photos/complete', () => {
+  describe('POST /api/file/confirm', () => {
     test('confirms photo upload', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'complete@example.com'
@@ -122,17 +122,16 @@ describe('File E2E', () => {
 
       const photoKey = `${user.id}/test-photo.jpg`
 
-      const response = await apiPost('/file/photos/complete', {
+      const response = await apiPost('/file/confirm', {
         key: photoKey,
-        contentType: 'image/jpeg',
-        sizeBytes: 100000
+        size: 100000
       }, { token })
 
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.id).toBeDefined()
-      expect(data.data.key).toBe(photoKey)
+      expect(data.photo.id).toBeDefined()
+      expect(data.photo.key).toBe(photoKey)
     })
 
     test('infers format from key extension', async () => {
@@ -140,18 +139,18 @@ describe('File E2E', () => {
         email: 'complete-png@example.com'
       })
 
-      const response = await apiPost('/file/photos/complete', {
+      const response = await apiPost('/file/confirm', {
         key: `${user.id}/test-photo.png`
       }, { token })
 
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
-      expect(data.data.format).toBe('png')
+      expect(data.photo.format).toBe('png')
     })
 
     test('requires authentication', async () => {
-      const response = await apiPost('/file/photos/complete', {
+      const response = await apiPost('/file/confirm', {
         key: 'test/photo.jpg'
       })
 
@@ -163,16 +162,16 @@ describe('File E2E', () => {
         email: 'complete-no-key@example.com'
       })
 
-      const response = await apiPost('/file/photos/complete', {
+      const response = await apiPost('/file/confirm', {
       }, { token })
 
       await expectError(response, 422)
     })
   })
 
-  describe('GET /api/file/photos/user/:userId', () => {
+  describe('GET /api/file/user/:userId', () => {
     test('returns user photos with pagination', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'get-photos@example.com'
       })
 
@@ -181,7 +180,7 @@ describe('File E2E', () => {
       await createTestPhoto({ userId: user.id, key: 'test/photo2.jpg' })
       await createTestPhoto({ userId: user.id, key: 'test/photo3.jpg' })
 
-      const response = await apiGet(`/file/photos/user/${user.id}`)
+      const response = await apiGet(`/file/user/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -190,7 +189,7 @@ describe('File E2E', () => {
     })
 
     test('supports pagination with page and limit', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'paginate@example.com'
       })
 
@@ -199,7 +198,7 @@ describe('File E2E', () => {
         await createTestPhoto({ userId: user.id, key: `test/photo${i}.jpg` })
       }
 
-      const response = await apiGet(`/file/photos/user/${user.id}?page=1&limit=2`)
+      const response = await apiGet(`/file/user/${user.id}?page=1&limit=2`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -207,11 +206,11 @@ describe('File E2E', () => {
     })
 
     test('returns empty array for user with no photos', async () => {
-      const user = await createTestUser({
+      const { user, token } = await createAuthenticatedTestUser({
         email: 'no-photos@example.com'
       })
 
-      const response = await apiGet(`/file/photos/user/${user.id}`)
+      const response = await apiGet(`/file/user/${user.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
@@ -219,7 +218,7 @@ describe('File E2E', () => {
     })
   })
 
-  describe('DELETE /api/file/photos/:photoId', () => {
+  describe('DELETE /api/file/:photoId', () => {
     test('deletes photo successfully', async () => {
       const { user, token } = await createAuthenticatedTestUser({
         email: 'delete@example.com'
@@ -230,13 +229,13 @@ describe('File E2E', () => {
         key: 'test/delete-me.jpg'
       })
 
-      const response = await apiDelete(`/file/photos/${photo.id}`, { token })
+      const response = await apiDelete(`/file/${photo.id}`, { token })
       const data = await expectSuccess(response)
 
       expect(data.success).toBe(true)
 
       // Verify photo is deleted
-      const getResponse = await apiGet(`/file/photos/user/${user.id}`)
+      const getResponse = await apiGet(`/file/user/${user.id}`, { token })
       const getData = await expectSuccess(getResponse)
       expect(getData.data.length).toBe(0)
     })
@@ -251,7 +250,7 @@ describe('File E2E', () => {
         key: 'test/delete-me.jpg'
       })
 
-      const response = await apiDelete(`/file/photos/${photo.id}`)
+      const response = await apiDelete(`/file/${photo.id}`)
       await expectError(response, 401)
     })
 
@@ -260,7 +259,7 @@ describe('File E2E', () => {
         email: 'delete-not-found@example.com'
       })
 
-      const response = await apiDelete('/file/photos/nonexistent-id', { token })
+      const response = await apiDelete('/file/nonexistent-id', { token })
       await expectError(response, 404)
     })
   })

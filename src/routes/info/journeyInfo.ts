@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
-import { getJourneyDashboard } from '../../services/rate/journeyService'
+import { fetchProfileBundle } from '../../services/info/profileAggregator'
+import type { JourneyDashboard } from '../../services/rate/journeyService'
 
 // Create logger for this module
 const logger = {
@@ -38,10 +39,11 @@ export const journeyInfoRoute = new Elysia()
         setTimeout(() => reject(new Error('Journey info request timeout after 25 seconds')), 25000);
       });
 
-      const journeyDataPromise = getJourneyDashboard(userId);
+      const journeyDataPromise = fetchProfileBundle(userId, { includePhotos: false, limit: 0 })
+        .then((bundle) => bundle.stats as JourneyDashboard)
       
       // Race between the actual operation and timeout
-      const journeyData = await Promise.race([journeyDataPromise, timeoutPromise]);
+      const journeyData = await Promise.race([journeyDataPromise, timeoutPromise]) as JourneyDashboard;
       
       const duration = Date.now() - startTime;
       logger.info('Journey info request completed successfully', { 

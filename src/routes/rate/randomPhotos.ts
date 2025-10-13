@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { getRandomPhotosForRating } from '../../services/rate'
+import { getRandomPhotosV2 } from '../../services/rate/getRandomPhotosV2'
 
 // Create logger for this module
 const logger = {
@@ -36,8 +36,8 @@ export const randomPhotosRoute = new Elysia()
         setTimeout(() => reject(new Error('Random photos request timeout after 15 seconds')), 15000);
       });
 
-      // Use authenticated user's ID
-      const photosPromise = getRandomPhotosForRating(user.id, limit);
+      // Use authenticated user's ID with V2 recommendation engine
+      const photosPromise = getRandomPhotosV2(user.id, limit);
 
       // Race between the actual operation and timeout
       const photos = await Promise.race([photosPromise, timeoutPromise]);

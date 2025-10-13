@@ -1,63 +1,53 @@
-import { existsSync, statSync, readFileSync } from 'fs'
-import { resolve } from 'path'
+import { beforeAll, afterAll } from 'bun:test'
 import { execSync } from 'child_process'
+import { resolve } from 'path'
+import { existsSync, rmSync } from 'fs'
 
-// Suppress verbose console logs during tests (keep errors and critical messages)
-const originalLog = console.log
-const originalInfo = console.info
+const DEFAULT_TEST_DB_URL = 'file:./prisma/test.db'
 
-console.log = (...args: any[]) => {
-  // Only show logs that start with ✅, 📦, or ❌
-  const firstArg = args[0]?.toString() || ''
-  if (firstArg.startsWith('✅') || firstArg.startsWith('📦') || firstArg.startsWith('❌')) {
-    originalLog(...args)
+process.env.DATABASE_URL = DEFAULT_TEST_DB_URL
+
+try {
+  const testDbPath = resolve(process.cwd(), 'prisma', 'test.db')
+  if (existsSync(testDbPath)) {
+    rmSync(testDbPath)
   }
-}
-console.info = () => {} // Suppress info logs
 
-// Keep console.error and console.warn for actual issues
-
-// Load .env.test file for testing environment
-const envTestPath = resolve(process.cwd(), '.env.test')
-if (existsSync(envTestPath)) {
-  const envContent = readFileSync(envTestPath, 'utf-8')
-  envContent.split('\n').forEach(line => {
-    const trimmed = line.trim()
-    if (trimmed && !trimmed.startsWith('#')) {
-      const [key, ...valueParts] = trimmed.split('=')
-      if (key && valueParts.length > 0) {
-        const value = valueParts.join('=')
-        process.env[key.trim()] = value.trim()
-      }
-    }
+  execSync('bunx prisma migrate reset --force --skip-generate', {
+    env: {
+      ...process.env,
+      DATABASE_URL: process.env.DATABASE_URL || DEFAULT_TEST_DB_URL
+    },
+    stdio: 'inherit'
   })
-  console.log('✅ Loaded .env.test configuration')
+} catch (error) {
+  console.error('Failed to run Prisma migrations for test database')
+  throw error
 }
 
-const TEST_DB_PATH = resolve(process.cwd(), 'prisma', 'test.db')
+// Store original console methods
+const originalConsoleError = console.error
+const originalConsoleWarn = console.warn
 
-// Initialize test database schema before running tests
-async function setupTestDatabase() {
-  const dbExists = existsSync(TEST_DB_PATH)
-  const needsInit = !dbExists || statSync(TEST_DB_PATH).size === 0
+// Suppress console.error and console.warn during tests
+beforeAll(() => {
+  console.error = () => {}
+  console.warn = () => {}
+})
 
-  if (needsInit) {
-    console.log('📦 Initializing test database schema...')
-    try {
-      execSync('bunx prisma db push --skip-generate --accept-data-loss', {
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          DATABASE_URL: 'file:test.db'
-        }
-      })
-      console.log('✅ Test database initialized')
-    } catch (error) {
-      console.error('❌ Failed to initialize test database:', error)
-      process.exit(1)
-    }
-  }
+// Restore console methods after tests
+afterAll(() => {
+  console.error = originalConsoleError
+  console.warn = originalConsoleWarn
+})
+
+// Export for use in test files if needed
+export const suppressConsole = () => {
+  console.error = () => {}
+  console.warn = () => {}
 }
 
-// Run setup
-await setupTestDatabase()
+export const restoreConsole = () => {
+  console.error = originalConsoleError
+  console.warn = originalConsoleWarn
+}

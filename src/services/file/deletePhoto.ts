@@ -2,11 +2,16 @@ import getPrisma from '../../dbConfig'
 import { deleteFile as deleteR2File } from './deleteFile'
 import { handleR2Error, logError } from './errors'
 
-export async function deletePhoto(photoId: string): Promise<{ success: boolean; error?: string }> {
+export async function deletePhoto(photoId: string, userId: number | string): Promise<{ success: boolean; error?: string }> {
   try {
+    const numericUserId = typeof userId === 'number' ? userId : Number(userId)
+    if (!Number.isFinite(numericUserId)) {
+      return { success: false, error: 'Invalid user identifier' }
+    }
+
     const photo = await getPrisma().photo.findUnique({ where: { id: photoId } })
-    if (!photo) {
-      return { success: false, error: 'Photo not found' }
+    if (!photo || photo.userId !== numericUserId) {
+      return { success: false, error: 'Photo not found or unauthorized' }
     }
     const deleteResult = await deleteR2File(photo.key)
     if (!deleteResult.success) {

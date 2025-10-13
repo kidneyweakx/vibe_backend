@@ -2,13 +2,17 @@ import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../r2/presign'
 import type { PhotoListResponse, PhotoInfo } from '../interfaces/file'
 
-export async function getUserPhotos(userId: string, page: number = 1, limit: number = 20): Promise<PhotoListResponse> {
+export async function getUserPhotos(userId: number | string, page: number = 1, limit: number = 20): Promise<PhotoListResponse> {
   try {
     const skip = (page - 1) * limit
+    const numericUserId = typeof userId === 'number' ? userId : Number(userId)
+    if (!Number.isFinite(numericUserId)) {
+      throw new Error('Invalid user identifier')
+    }
     
     // Filter out profile pictures from user photos
     const whereCondition = { 
-      userId,
+      userId: numericUserId,
       key: { not: { startsWith: 'profile-pictures/' } }
     }
     

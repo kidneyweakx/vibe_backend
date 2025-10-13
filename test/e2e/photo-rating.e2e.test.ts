@@ -1,10 +1,14 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
 import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createAuthenticatedTestUser } from '../helpers/db'
 import { apiGet, apiPost, expectSuccess, expectError } from '../helpers/api'
+import { clearRandomPhotoCaches } from '../../src/services/rate/getRandomPhotosForRating'
+import { clearJourneyCache } from '../../src/services/rate/journeyService'
 
 describe('Photo Rating E2E', () => {
   beforeEach(async () => {
     await cleanDatabase()
+    clearRandomPhotoCaches()
+    clearJourneyCache()
   })
 
   afterAll(async () => {

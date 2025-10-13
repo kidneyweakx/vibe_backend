@@ -2,9 +2,14 @@ import { Elysia, t } from 'elysia'
 import { AuthService } from '../../services/auth/service'
 
 export const googleVerifyRoute = new Elysia()
-  .post('/google/verify', async ({ body, set }) => {
+  // Main Google auth endpoint
+  .post('/google', async ({ body, set }) => {
     try {
-      const authResponse = await AuthService.signInWithGoogle(body.idToken, body.accessToken)
+      // Support both old format (token) and new format (idToken)
+      const idToken = 'idToken' in body ? body.idToken : body.token
+      const accessToken = 'accessToken' in body ? body.accessToken : undefined
+      
+      const authResponse = await AuthService.signInWithGoogle(idToken, accessToken)
       return authResponse
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google authentication failed'
@@ -14,7 +19,9 @@ export const googleVerifyRoute = new Elysia()
     }
   }, {
     body: t.Object({
-      idToken: t.String(),
+      // Support both old and new field names
+      token: t.Optional(t.String()),
+      idToken: t.Optional(t.String()),
       accessToken: t.Optional(t.String())
     })
   })

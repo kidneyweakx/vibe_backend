@@ -7,8 +7,8 @@ export interface CreateUserData {
   gender?: string
   provider: string
   providerId: string
-  passwordHash?: string
   isGuest?: boolean
+  deviceId?: string
 }
 
 export async function upsertUser(data: CreateUserData) {

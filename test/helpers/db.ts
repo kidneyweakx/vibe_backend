@@ -26,7 +26,6 @@ export async function cleanDatabase(): Promise<void> {
   const db = await getTestDb()
 
   // Delete in order to respect foreign key constraints
-  await db.onboarding.deleteMany()
   await db.report.deleteMany()
   await db.photoTag.deleteMany()
   await db.rating.deleteMany()
@@ -62,6 +61,8 @@ export async function createTestUser(data: {
       name: data.name || 'Test User',
       provider: data.provider || 'test',
       providerId: data.providerId || data.email,
+      isDeleted: false,
+      isGuest: false,
       ...(data.gender !== undefined && { gender: data.gender })
     }
   })

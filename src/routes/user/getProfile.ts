@@ -5,7 +5,7 @@ export const getProfileRoute = new Elysia()
   .get('/profile/:id', async ({ params: { id }, user, set }: any) => {
     try {
       // Users can only view their own full profile
-      if (user.id !== id) {
+      if (String(user.id) !== id) {
         set.status = 403
         return { success: false, error: 'Can only view your own profile. Use /user/info/:id for public profiles.' }
       }

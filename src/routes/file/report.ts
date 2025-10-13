@@ -16,11 +16,9 @@ export const reportRoute = new Elysia()
         return { success: false, error: 'photoId and reason are required' }
       }
 
-      // Validate reason
-      const validReasons = ['inappropriate', 'spam', 'harassment', 'nudity', 'violence', 'other']
-      if (!validReasons.includes(reason)) {
+      if (typeof reason !== 'string' || reason.trim().length === 0) {
         set.status = 400
-        return { success: false, error: 'Invalid reason' }
+        return { success: false, error: 'Reason is required' }
       }
 
       // Use authenticated user's ID as reporter
@@ -37,6 +35,7 @@ export const reportRoute = new Elysia()
       return {
         success: true,
         data: {
+          id: report.id,
           reportId: report.id,
           photoStatus: hideResult.status,
           reportCount: hideResult.reportCount,

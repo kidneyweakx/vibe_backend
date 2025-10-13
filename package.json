@@ -11,17 +11,20 @@
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production",
     "wrangler:dev": "wrangler dev",
+    "wrangler:dev:test": "wrangler dev --env test",
     "wrangler:tail": "wrangler tail",
+    "init:test-d1": "bun run scripts/init-test-d1.ts",
+    "init:tags": "bun run scripts/init-tags.ts",
+    "init:tags:en": "bun run scripts/init-tags-en.ts",
+    "init:preset-tags": "bun run scripts/init-preset-tags.ts",
+    "seed:journey": "bun run scripts/seed-journey-data.ts",
+    "seed:journey:d1": "bun run scripts/seed-journey-data-d1.ts",
     "cleanup:r2dev": "bun run scripts/cleanup-r2dev.ts",
-    "init-tags": "bun run scripts/init-tags.ts",
-    "init-tags:en": "bun run scripts/init-tags-en.ts",
-    "load-test": "bunx artillery run test/load-test-simple.yml -o test/load-test-report.json && node test/parse-load-report.js test/load-test-report.json",
-    "load-test:prod": "bunx artillery run test/load-test-production.yml -o test/load-test-production-report.json && node test/parse-load-report.js test/load-test-production-report.json",
-    "diagnose:r2": "bun run scripts/diagnose-r2.ts",
     "cleanup:orphaned": "bun run scripts/cleanup-orphaned-photos.ts --dry-run",
     "cleanup:orphaned:force": "bun run scripts/cleanup-orphaned-photos.ts",
-    "seed:journey": "bun run scripts/seed-journey-data.ts",
-    "seed:journey:d1": "bun run scripts/seed-journey-data-d1.ts"
+    "diagnose:r2": "bun run scripts/diagnose-r2.ts",
+    "db:export-clear": "bun run scripts/export-and-clear-d1.ts",
+    "db:export-clear:prod": "bun run scripts/export-and-clear-d1.ts --env production"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.857.0",
@@ -35,11 +38,9 @@
     "elysia": "latest",
     "jose": "^5.9.6",
     "prismabox": "^1.1.24",
-    "sharp": "^0.33.4"
+    "sharp": "0.34.4"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "artillery": "^2.0.25",
     "bun-types": "latest",
     "wrangler": "^4.28.1"
   },

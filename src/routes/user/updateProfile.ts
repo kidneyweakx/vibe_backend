@@ -5,7 +5,7 @@ export const updateProfileRoute = new Elysia()
   .put('/profile/:id', async ({ params: { id }, body, user, set }: any) => {
     try {
       // Users can only update their own profile
-      if (user.id !== id) {
+      if (String(user.id) !== id) {
         set.status = 403
         return { success: false, error: 'Can only update your own profile' }
       }

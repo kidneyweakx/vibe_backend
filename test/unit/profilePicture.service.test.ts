@@ -115,12 +115,13 @@ describe('Profile Picture Service', () => {
 
       expect(result.success).toBe(true)
 
-      // Verify guest user was created
-      const guestUser = await getPrisma().user.findUnique({
-        where: { id: guestId }
+      // Verify guest user was created or fetched by providerId
+      const guestUser = await getPrisma().user.findFirst({
+        where: { providerId: guestId }
       })
       expect(guestUser).toBeDefined()
       expect(guestUser?.email).toBe(`${guestId}@guest.local`)
+      expect(guestUser?.isGuest).toBe(true)
     })
 
     test('rejects non-existent regular user', async () => {

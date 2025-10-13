@@ -1,10 +1,14 @@
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test'
 import { cleanDatabase, closeDatabase, createTestUser, createTestPhoto, createAuthenticatedTestUser } from '../helpers/db'
+import { clearProfileBundleCache } from '../../src/services/info/profileAggregator'
+import { clearJourneyCache } from '../../src/services/rate/journeyService'
 import { apiGet, apiPost, expectSuccess, expectError } from '../helpers/api'
 
 describe('Info E2E', () => {
   beforeEach(async () => {
     await cleanDatabase()
+    clearProfileBundleCache()
+    clearJourneyCache()
   })
 
   afterAll(async () => {

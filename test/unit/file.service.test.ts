@@ -183,10 +183,10 @@ describe('File Service', () => {
 
   describe('deletePhoto', () => {
     test('returns error when photo not found', async () => {
-      const result = await deletePhoto('nonexistent-photo-id')
+      const result = await deletePhoto('nonexistent-photo-id', 1)
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Photo not found')
+      expect(result.error).toBe('Photo not found or unauthorized')
     })
 
     // Note: Full deletePhoto tests including R2 deletion are skipped

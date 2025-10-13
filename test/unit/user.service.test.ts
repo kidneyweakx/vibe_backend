@@ -134,54 +134,8 @@ describe('UserService', () => {
 
     test('throws error when user does not exist', async () => {
       await expect(
-        UserService.updateUser('nonexistent', { name: 'Test' })
+        UserService.updateUser('nonexistent-id', { name: 'Test' })
       ).rejects.toThrow()
-    })
-  })
-
-  describe('getUserPublicInfo', () => {
-    test('returns public user info with photo count', async () => {
-      const user = await UserService.upsertUser({
-        email: 'public@example.com',
-        name: 'Public User',
-        bio: 'Test bio',
-        provider: 'test',
-        providerId: 'public123'
-      })
-
-      // Add some photos
-      const db = await getTestDb()
-      await db.photo.createMany({
-        data: [
-          {
-            userId: user.id,
-            key: 'test/photo1.jpg',
-            url: 'https://example.com/1.jpg',
-            format: 'jpg',
-            size: 1000
-          },
-          {
-            userId: user.id,
-            key: 'test/photo2.jpg',
-            url: 'https://example.com/2.jpg',
-            format: 'jpg',
-            size: 2000
-          }
-        ]
-      })
-
-      const info = await UserService.getUserPublicInfo(user.id)
-
-      expect(info.user.id).toBe(user.id)
-      expect(info.user.name).toBe('Public User')
-      expect(info.stats.photoCount).toBe(2)
-      expect(info.recentPhotos).toHaveLength(2)
-    })
-
-    test('throws error when user does not exist', async () => {
-      await expect(
-        UserService.getUserPublicInfo('nonexistent')
-      ).rejects.toThrow('User not found')
     })
   })
 
@@ -424,30 +378,3 @@ describe('UserService', () => {
     })
   })
 })
-
-  describe('generateShareableLink', () => {
-    test('generates shareable link for existing user', async () => {
-      const user = await upsertUser({
-        email: 'share@example.com',
-        provider: 'test',
-        providerId: 'share-123',
-        name: 'Share User'
-      })
-
-      const { generateShareableLink } = await import('../../src/services/user/generateShareableLink')
-      const linkData = await generateShareableLink(user.id)
-
-      expect(linkData.userId).toBe(user.id)
-      expect(linkData.userName).toBe('Share User')
-      expect(linkData.shareUrl).toContain(user.id)
-      expect(linkData.apiUrl).toContain(user.id)
-      expect(linkData.qrCodeUrl).toContain(user.id)
-      expect(linkData.createdAt).toBeDefined()
-    })
-
-    test('throws error for non-existent user', async () => {
-      const { generateShareableLink } = await import('../../src/services/user/generateShareableLink')
-      
-      await expect(generateShareableLink('non-existent-id')).rejects.toThrow('User not found')
-    })
-  })

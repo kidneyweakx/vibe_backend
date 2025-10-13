@@ -2,6 +2,7 @@ import { UserService } from '../user/serviceAdapter'
 import { getEnvVar } from '../../env'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
+import getPrisma from '../../dbConfig'
 
 export interface GoogleTokenPayload {
   sub: string // Google user ID
@@ -18,9 +19,10 @@ export interface AppleTokenPayload {
 
 export interface AuthResponse {
   user: {
-    id: string
+    id: number
     name: string
     email: string
+    isGuest?: boolean
     profileImageURL?: string
   }
   token?: string
@@ -46,6 +48,7 @@ export class AuthService {
     return secret || 'your-secret-key'
   })()
   private static readonly JWT_EXPIRES_IN_SECONDS = '30d' // 30 days token expiration
+  private static readonly BCRYPT_SALT_ROUNDS = 10
 
   // Narrow-scope diagnostics to make Prisma/libsql config issues obvious in auth flows
   private static sanitizeDbUrlHost(urlLike: string | undefined): string {
@@ -90,10 +93,10 @@ export class AuthService {
     throw new Error('generateJWT should not be called synchronously. Use generateJWTAsync instead.')
   }
 
-  static async generateJWTAsync(userId: string): Promise<string> {
+  static async generateJWTAsync(userId: string | number): Promise<string> {
     const secret = new TextEncoder().encode(this.JWT_SECRET)
     const alg = 'HS256'
-    const jwt = await new jose.SignJWT({ userId })
+    const jwt = await new jose.SignJWT({ userId: String(userId) })
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .setExpirationTime(this.JWT_EXPIRES_IN_SECONDS)
@@ -105,9 +108,91 @@ export class AuthService {
     try {
       const secret = new TextEncoder().encode(this.JWT_SECRET)
       const { payload } = await jose.jwtVerify(token, secret)
-      return { userId: String(payload.userId) }
+      const userIdValue = payload.userId
+      if (typeof userIdValue === 'string' && userIdValue.trim().length > 0) {
+        return { userId: userIdValue }
+      }
+      if (typeof userIdValue === 'number' && Number.isFinite(userIdValue)) {
+        return { userId: String(userIdValue) }
+      }
+      return null
     } catch {
       return null
+    }
+  }
+
+  static async hashPassword(password: string): Promise<string> {
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters long')
+    }
+    return bcrypt.hash(password, this.BCRYPT_SALT_ROUNDS)
+  }
+
+  static async verifyPassword(password: string, hash: string): Promise<boolean> {
+    if (!hash) return false
+    return bcrypt.compare(password, hash)
+  }
+
+  static async registerWithPassword(email: string, password: string, name?: string): Promise<AuthResponse> {
+    const prisma = getPrisma()
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) {
+      throw new Error('Email already registered')
+    }
+
+    const passwordHash = await this.hashPassword(password)
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name ?? null,
+        provider: 'password',
+        providerId: email,
+        passwordHash,
+        isGuest: false
+      }
+    })
+
+    const token = await this.generateJWTAsync(user.id)
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name ?? '',
+        email: user.email,
+        isGuest: user.isGuest,
+        profileImageURL: user.avatar ?? undefined
+      },
+      token
+    }
+  }
+
+  static async signInWithPassword(email: string, password: string): Promise<AuthResponse> {
+    const prisma = getPrisma()
+
+    const user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user || !user.passwordHash) {
+      throw new Error('Invalid email or password')
+    }
+
+    const isValid = await this.verifyPassword(password, user.passwordHash)
+    if (!isValid) {
+      throw new Error('Invalid email or password')
+    }
+
+    const token = await this.generateJWTAsync(user.id)
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name ?? '',
+        email: user.email,
+        isGuest: user.isGuest,
+        profileImageURL: user.avatar ?? undefined
+      },
+      token
     }
   }
 
@@ -174,12 +259,37 @@ export class AuthService {
     }
   }
 
-  static async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10)
-  }
+  // Guest authentication - device-based, no password needed
+  static async signInAsGuest(deviceId: string): Promise<AuthResponse> {
+    try {
+      // Try to find existing guest user with this deviceId
+      const existingUser = await UserService.getUserByDeviceId(deviceId)
 
-  static async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-    return bcrypt.compare(password, hashedPassword)
+      let user
+      if (existingUser && !existingUser.isDeleted) {
+        // Return existing guest user
+        user = existingUser
+      } else {
+        // Create new guest user
+        user = await UserService.createGuestUser(deviceId)
+      }
+
+      const token = await this.generateJWTAsync(user.id)
+
+      return {
+        user: {
+          id: user.id,
+          name: user.name || 'Guest User',
+          email: user.email,
+          isGuest: true,
+          profileImageURL: user.avatar ?? undefined
+        },
+        token
+      }
+    } catch (error: any) {
+      this.logEnvDiagnostics('guest', { error: String(error?.message || error), deviceId })
+      throw new Error(`Guest authentication failed: ${this.describeDbConfigIssue()}`)
+    }
   }
 
   static async signInWithGoogle(idToken: string, accessToken?: string): Promise<AuthResponse> {
@@ -269,72 +379,16 @@ export class AuthService {
     }
   }
 
-  static async signInWithPassword(username: string, password: string): Promise<AuthResponse> {
-    // Find user by email or username
-    const user = await UserService.getUserByEmail(username)
-    
-    if (!user || !user.passwordHash) {
-      throw new Error('Invalid credentials')
-    }
-
-    const isValidPassword = await this.verifyPassword(password, user.passwordHash)
-    
-    if (!isValidPassword) {
-      throw new Error('Invalid credentials')
-    }
-
-    const token = await this.generateJWTAsync(user.id)
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name || '',
-        email: user.email,
-          profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
-  }
-
-  static async registerWithPassword(email: string, password: string, name?: string): Promise<AuthResponse> {
-    // Check if user already exists
-    const existingUser = await UserService.getUserByEmail(email)
-    if (existingUser) {
-      throw new Error('User already exists')
-    }
-
-    const passwordHash = await this.hashPassword(password)
-    
-    let user
-    try {
-      user = await UserService.upsertUser({
-        email,
-        name,
-        provider: 'password',
-        providerId: email, // Use email as providerId for password auth
-        passwordHash
-      })
-    } catch (error: any) {
-      this.logEnvDiagnostics('password', { error: String(error?.message || error) })
-      throw new Error(`Registration failed: ${this.describeDbConfigIssue()}`)
-    }
-
-    const token = await this.generateJWTAsync(user.id)
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name || '',
-        email: user.email,
-          profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
-  }
 
   static async getUserFromToken(token: string) {
     const decoded = await this.verifyJWTAsync(token)
     if (!decoded) return null
-    return UserService.getUserById(decoded.userId)
+
+    const numericId = Number(decoded.userId)
+    if (!Number.isFinite(numericId)) {
+      return null
+    }
+
+    return UserService.getUserById(numericId)
   }
 }

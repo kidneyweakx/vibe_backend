@@ -1,51 +1,60 @@
 import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../r2/presign'
-import { calculateTotalScore } from './calculateTotalScore'
 
-export async function getUserStats(userId: string) {
-  const user = await getPrisma().user.findUnique({ where: { id: userId } })
+export async function getUserStats(userId: number | string) {
+  const prisma = getPrisma()
+
+  const numericUserId = typeof userId === 'number' ? userId : Number(userId)
+  if (!Number.isFinite(numericUserId)) {
+    throw new Error('User not found')
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: numericUserId } })
   if (!user) throw new Error('User not found')
-  const likeCount = await getPrisma().rating.count({ where: { ratedUserId: userId, type: 'like' } })
-  const normalCount = await getPrisma().rating.count({ where: { ratedUserId: userId, type: 'normal' } })
-  const totalRatings = likeCount + normalCount
-  const totalScore = calculateTotalScore(likeCount, normalCount)
-  const allUserStats = await getPrisma().rating.groupBy({
-    by: ['ratedUserId'],
+
+  // Use materialized stats instead of recalculating
+  const totalScore = user.totalScore
+  const likeCount = user.likeCount
+  const normalCount = user.normalCount
+  const totalRatings = user.totalRatings
+
+  // Calculate overall rank efficiently using count
+  const overallRank = await prisma.user.count({
     where: {
-      type: { in: ['like', 'normal'] }
-      // Removed isGuest filter - guests included in rankings
-    },
-    _count: { _all: true }
-  })
-  const userScores = await Promise.all(allUserStats.map(async (stat) => {
-    const userLikes = await getPrisma().rating.count({ where: { ratedUserId: stat.ratedUserId, type: 'like' } })
-    const userNormals = await getPrisma().rating.count({ where: { ratedUserId: stat.ratedUserId, type: 'normal' } })
-    return { userId: stat.ratedUserId, score: calculateTotalScore(userLikes, userNormals) }
-  }))
-  const betterUsers = userScores.filter(u => u.score > totalScore)
-  const overallRank = betterUsers.length + 1
+      isGuest: false,
+      eloRating: { gt: user.eloRating }
+    }
+  }) + 1
+
+  // Calculate gender rank if applicable
   let genderRank: number | undefined
   if (user.gender) {
-    const sameGenderUsers = await getPrisma().user.findMany({
+    genderRank = await prisma.user.count({
       where: {
-        gender: user.gender
-        // Removed isGuest filter - guests included in gender rankings
-      },
-      select: { id: true }
-    })
-    const sameGenderScores = userScores.filter(u => sameGenderUsers.some(sgu => sgu.id === u.userId))
-    const betterSameGenderUsers = sameGenderScores.filter(u => u.score > totalScore)
-    genderRank = betterSameGenderUsers.length + 1
+        gender: user.gender,
+        isGuest: false,
+        eloRating: { gt: user.eloRating }
+      }
+    }) + 1
   }
-  const recentRatings = await getPrisma().rating.findMany({ where: { ratedUserId: userId }, include: { photo: true }, orderBy: { createdAt: 'desc' }, take: 10 })
+
+  // Get recent ratings
+  const recentRatings = await prisma.rating.findMany({
+    where: { ratedUserId: numericUserId },
+    include: { photo: true },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  })
+
   return {
-    userId,
+    userId: user.id,
     totalScore,
     likeCount,
     normalCount,
     totalRatings,
     overallRank,
     genderRank,
+    eloRating: user.eloRating,
     recentRatings: await Promise.all(recentRatings.map(async (rating) => ({
       photoId: rating.photoId,
       photoUrl: await getPresignedGetUrl(rating.photo.key, 60 * 60 * 24 * 7),

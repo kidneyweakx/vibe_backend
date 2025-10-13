@@ -1,8 +1,14 @@
 import getPrisma from '../../dbConfig'
-import { getPresignedGetUrl } from '../r2/presign'
+
+const JOURNEY_CACHE_TTL = 30_000
+
+interface CacheEntry<T> {
+  expiresAt: number
+  data: T
+}
 
 export interface JourneyDashboard {
-  userId: string
+  userId: number
   totalScore: number
   likeCount: number
   normalCount: number
@@ -17,6 +23,19 @@ export interface JourneyDashboard {
   achievements: Achievement[]
   nextMilestone: Milestone | null
   levelProgress: LevelProgress
+  // NEW: Weekly progress data
+  weeklyProgress: WeeklyProgress
+}
+
+export interface WeeklyProgress {
+  currentWeekScore: number
+  lastWeekScore: number
+  scoreChange: number
+  currentWeekRatings: number
+  lastWeekRatings: number
+  rankChange: number // Positive = improved, negative = dropped
+  femaleAttractionChange: number
+  maleAttractionChange: number
 }
 
 export interface RecentRating {
@@ -57,220 +76,325 @@ export interface LevelProgress {
   progressPercentage: number
 }
 
-export async function getJourneyDashboard(userId: string): Promise<JourneyDashboard> {
+const journeyCache = new Map<string, CacheEntry<JourneyDashboard>>()
+
+export async function getJourneyDashboard(userId: number | string): Promise<JourneyDashboard> {
+  const numericId = typeof userId === 'number' ? userId : Number(userId)
+  if (!Number.isFinite(numericId)) {
+    throw new Error('User not found')
+  }
+
+  const cacheKey = String(numericId)
+
+  const cached = journeyCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data
+  }
+
   const prisma = getPrisma()
-  
-  // Get basic user info
+
   const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, gender: true }
+    where: { id: numericId },
+    select: {
+      id: true,
+      gender: true,
+      eloRating: true,
+      totalScore: true,
+      likeCount: true,
+      normalCount: true,
+      totalRatings: true
+    }
   })
 
   if (!user) {
     throw new Error('User not found')
   }
 
-  // Get user's rating counts
-  const [likeCount, normalCount] = await Promise.all([
-    prisma.rating.count({
-      where: { 
-        ratedUserId: userId,
-        type: 'like'
+  const today = startOfDay(new Date())
+  const currentWeekStart = daysAgo(today, 6)
+  const previousWeekStart = daysAgo(today, 13)
+
+  const [
+    overallHigherCount,
+    genderHigherCount,
+    totalUsersResult,
+    genderTotalsRows,
+    weeklyRows,
+    genderWindowRows,
+    recentRatings
+  ] = await Promise.all([
+    prisma.user.count({
+      where: {
+        isGuest: false,
+        eloRating: { gt: user.eloRating }
       }
     }),
-    prisma.rating.count({
-      where: { 
-        ratedUserId: userId,
-        type: 'normal'
-      }
-    })
-  ])
-
-  const totalRatings = likeCount + normalCount
-  const totalScore = totalRatings > 0 
-    ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalRatings) * 100)
-    : 0
-
-  // Get overall ranking (excluding guest users)
-  const overallRankResult = await prisma.$queryRaw<Array<{ rank: bigint }>>`
-    SELECT COUNT(*) + 1 as rank
-    FROM users u
-    LEFT JOIN (
+    user.gender
+      ? prisma.user.count({
+          where: {
+            isGuest: false,
+            gender: user.gender,
+            eloRating: { gt: user.eloRating }
+          }
+        })
+      : Promise.resolve<number | null>(null),
+    prisma.user.count({ where: { isGuest: false } }),
+    prisma.$queryRaw<Array<{ gender: string | null; type: string; count: number | bigint }>>`
+      SELECT u.gender as gender, r.type as type, COUNT(*) as count
+      FROM ratings r
+      LEFT JOIN users u ON u.id = r.raterId
+      WHERE r.ratedUserId = ${numericId}
+      GROUP BY u.gender, r.type
+    `,
+    prisma.$queryRaw<Array<{ date: string; likeCount: number | bigint; normalCount: number | bigint; totalCount: number | bigint }>>`
       SELECT
-        ratedUserId,
-        COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
-        COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
+        strftime('%Y-%m-%d', createdAt) as date,
+        SUM(CASE WHEN type = 'like' THEN 1 ELSE 0 END) as likeCount,
+        SUM(CASE WHEN type = 'normal' THEN 1 ELSE 0 END) as normalCount,
+        COUNT(*) as totalCount
       FROM ratings
-      GROUP BY ratedUserId
-    ) r ON u.id = r.ratedUserId
-    WHERE u.id != ${userId}
-      AND u.isGuest = 0
-      AND (
-        CASE
-          WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
-          ELSE ROUND(
-            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) /
-             (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
-          )
-        END
-      ) > ${totalScore}
-  `
-
-  // Get gender ranking (excluding guest users)
-  const genderRankResult = user.gender ? await prisma.$queryRaw<Array<{ rank: bigint }>>`
-    SELECT COUNT(*) + 1 as rank
-    FROM users u
-    LEFT JOIN (
+      WHERE ratedUserId = ${numericId}
+        AND createdAt >= ${previousWeekStart.toISOString()}
+      GROUP BY strftime('%Y-%m-%d', createdAt)
+    `,
+    prisma.$queryRaw<Array<{ date: string; gender: string | null; type: string; count: number | bigint }>>`
       SELECT
-        ratedUserId,
-        COUNT(CASE WHEN type = 'like' THEN 1 END) as likeCount,
-        COUNT(CASE WHEN type = 'normal' THEN 1 END) as normalCount
-      FROM ratings
-      GROUP BY ratedUserId
-    ) r ON u.id = r.ratedUserId
-    WHERE u.id != ${userId}
-      AND u.isGuest = 0
-      AND u.gender = ${user.gender}
-      AND (
-        CASE
-          WHEN COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0) = 0 THEN 0
-          ELSE ROUND(
-            ((COALESCE(r.likeCount, 0) * 1.0 + COALESCE(r.normalCount, 0) * 0.2) /
-             (COALESCE(r.likeCount, 0) + COALESCE(r.normalCount, 0))) * 100
-          )
-        END
-      ) > ${totalScore}
-  ` : [{ rank: BigInt(0) }]
-
-  // Get total user count (excluding guest users)
-  const totalUsersResult = await prisma.user.count({ where: { isGuest: false } })
-
-  // Get gender-specific attraction data
-  const [femaleLikeCount, maleLikeCount, femaleNormalCount, maleNormalCount] = await Promise.all([
-    prisma.rating.count({
-      where: {
-        ratedUserId: userId,
-        type: 'like',
-        rater: { gender: 'female' }
-      }
-    }),
-    prisma.rating.count({
-      where: {
-        ratedUserId: userId,
-        type: 'like',
-        rater: { gender: 'male' }
-      }
-    }),
-    prisma.rating.count({
-      where: {
-        ratedUserId: userId,
-        type: 'normal',
-        rater: { gender: 'female' }
-      }
-    }),
-    prisma.rating.count({
-      where: {
-        ratedUserId: userId,
-        type: 'normal',
-        rater: { gender: 'male' }
-      }
-    })
-  ])
-
-  const overallRank = Number(overallRankResult[0]?.rank || 1)
-  const genderRank = user.gender ? Number(genderRankResult[0]?.rank || 1) : null
-  
-  // Calculate gender attraction scores
-  const femaleTotal = femaleLikeCount + femaleNormalCount
-  const maleTotal = maleLikeCount + maleNormalCount
-  
-  const femaleAttraction = femaleTotal > 0 
-    ? ((femaleLikeCount * 1.0 + femaleNormalCount * 0.2) / femaleTotal) * 100
-    : 0
-    
-  const maleAttraction = maleTotal > 0
-    ? ((maleLikeCount * 1.0 + maleNormalCount * 0.2) / maleTotal) * 100
-    : 0
-
-  // Get recent ratings (last 10)
-  const recentRatings = await prisma.rating.findMany({
-    where: { ratedUserId: userId },
-    include: {
-      rater: {
-        select: { name: true, gender: true }
-      }
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 10
-  })
-
-  // Get weekly trend (last 7 days) - simplified approach
-  const weeklyTrend: DailyScore[] = []
-  const today = new Date()
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
-    
-    // Get ratings for this specific date
-    const dayRatings = await prisma.rating.findMany({
-      where: {
-        ratedUserId: userId,
-        createdAt: {
-          gte: new Date(dateStr + 'T00:00:00.000Z'),
-          lt: new Date(dateStr + 'T23:59:59.999Z')
+        strftime('%Y-%m-%d', r.createdAt) as date,
+        u.gender as gender,
+        r.type as type,
+        COUNT(*) as count
+      FROM ratings r
+      LEFT JOIN users u ON u.id = r.raterId
+      WHERE r.ratedUserId = ${numericId}
+        AND r.createdAt >= ${previousWeekStart.toISOString()}
+      GROUP BY strftime('%Y-%m-%d', r.createdAt), u.gender, r.type
+    `,
+    prisma.rating.findMany({
+      where: { ratedUserId: numericId },
+      include: {
+        rater: {
+          select: { name: true, gender: true }
         }
-      }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
     })
-    
-    const likeCount = dayRatings.filter(r => r.type === 'like').length
-    const normalCount = dayRatings.filter(r => r.type === 'normal').length
-    const totalCount = dayRatings.length
-    
-    const score = totalCount > 0 
-      ? Math.round(((likeCount * 1.0 + normalCount * 0.2) / totalCount) * 100 * 100) / 100
-      : 0
-    
-    weeklyTrend.push({
-      date: dateStr,
-      score,
-      ratingCount: totalCount
-    })
-  }
+  ])
 
-  // Generate achievements based on user stats
-  const achievements = generateAchievements(totalRatings, likeCount, totalScore)
-  
-  // Generate next milestone
-  const nextMilestone = generateNextMilestone(totalRatings, likeCount)
-  
-  // Calculate level progress
-  const levelProgress = calculateLevelProgress(totalScore)
+  const overallRank = overallHigherCount + 1
+  const genderRank = user.gender ? (genderHigherCount ?? 0) + 1 : null
 
-  return {
+  const genderTotals = summariseGenderTotals(genderTotalsRows)
+  const femaleAttraction = calculateAttraction(genderTotals.female.like, genderTotals.female.normal)
+  const maleAttraction = calculateAttraction(genderTotals.male.like, genderTotals.male.normal)
+
+  const weeklyTrend = buildWeeklyTrend(weeklyRows, today)
+  const lastWeekTrend = buildWeeklyTrend(weeklyRows, daysAgo(today, 7), 7)
+
+  const weeklyProgress = calculateWeeklyProgress(
+    weeklyTrend,
+    lastWeekTrend,
+    genderWindowRows,
+    currentWeekStart,
+    previousWeekStart,
+    femaleAttraction,
+    maleAttraction
+  )
+
+  const dashboard: JourneyDashboard = {
     userId: user.id,
-    totalScore,
-    likeCount,
-    normalCount,
-    totalRatings,
+    totalScore: user.totalScore,
+    likeCount: user.likeCount,
+    normalCount: user.normalCount,
+    totalRatings: user.totalRatings,
     overallRank,
     genderRank,
     totalUsers: totalUsersResult,
     femaleAttraction,
     maleAttraction,
-    recentRatings: recentRatings.map(r => ({
+    recentRatings: recentRatings.map((r) => ({
       id: r.id,
       type: r.type,
       createdAt: r.createdAt,
-      raterName: r.rater.name,
-      raterGender: r.rater.gender
+      raterName: r.rater?.name ?? null,
+      raterGender: r.rater?.gender ?? null
     })),
     weeklyTrend,
-    achievements,
-    nextMilestone,
-    levelProgress
+    achievements: generateAchievements(user.totalRatings, user.likeCount, user.totalScore),
+    nextMilestone: generateNextMilestone(user.totalRatings, user.likeCount),
+    levelProgress: calculateLevelProgress(user.totalScore),
+    weeklyProgress
   }
+
+  journeyCache.set(cacheKey, {
+    expiresAt: Date.now() + JOURNEY_CACHE_TTL,
+    data: dashboard
+  })
+
+  return dashboard
+}
+
+function startOfDay(date: Date): Date {
+  const copy = new Date(date)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function daysAgo(from: Date, days: number): Date {
+  const copy = new Date(from)
+  copy.setDate(copy.getDate() - days)
+  return copy
+}
+
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+interface GenderSummary {
+  like: number
+  normal: number
+}
+
+function summariseGenderTotals(rows: Array<{ gender: string | null; type: string; count: number | bigint }>) {
+  const summary: Record<'female' | 'male', GenderSummary> = {
+    female: { like: 0, normal: 0 },
+    male: { like: 0, normal: 0 }
+  }
+
+  for (const row of rows) {
+    const gender = row.gender === 'female' ? 'female' : row.gender === 'male' ? 'male' : null
+    if (!gender) continue
+    const type = row.type === 'like' ? 'like' : row.type === 'normal' ? 'normal' : null
+    if (!type) continue
+    summary[gender][type] += Number(row.count)
+  }
+
+  return summary
+}
+
+function buildWeeklyTrend(
+  rows: Array<{ date: string; likeCount: number | bigint; normalCount: number | bigint; totalCount: number | bigint }>,
+  endDate: Date,
+  window: number = 7
+): DailyScore[] {
+  const map = new Map<string, { like: number; normal: number; total: number }>()
+  for (const row of rows) {
+    map.set(row.date, {
+      like: Number(row.likeCount ?? 0),
+      normal: Number(row.normalCount ?? 0),
+      total: Number(row.totalCount ?? 0)
+    })
+  }
+
+  const result: DailyScore[] = []
+  for (let i = window - 1; i >= 0; i--) {
+    const currentDate = daysAgo(endDate, i)
+    const key = formatDateKey(currentDate)
+    const stats = map.get(key) ?? { like: 0, normal: 0, total: 0 }
+    const score = stats.total > 0 ? roundScore((stats.like * 1 + stats.normal * 0.2) / stats.total) : 0
+    result.push({
+      date: key,
+      score,
+      ratingCount: stats.total
+    })
+  }
+
+  return result
+}
+
+function roundScore(value: number): number {
+  return Math.round(value * 10000) / 100
+}
+
+function calculateAttraction(like: number, normal: number): number {
+  const total = like + normal
+  if (total === 0) return 0
+  return Math.round(((like * 1 + normal * 0.2) / total) * 1000) / 10
+}
+
+function calculateWeeklyProgress(
+  currentWeekTrend: DailyScore[],
+  previousWeekTrend: DailyScore[],
+  genderWindowRows: Array<{ date: string; gender: string | null; type: string; count: number | bigint }>,
+  currentWeekStart: Date,
+  previousWeekStart: Date,
+  currentFemaleAttraction: number,
+  currentMaleAttraction: number
+): WeeklyProgress {
+  const currentWeekScore = averageScore(currentWeekTrend)
+  const lastWeekScore = averageScore(previousWeekTrend)
+  const currentWeekRatings = sumRatings(currentWeekTrend)
+  const lastWeekRatings = sumRatings(previousWeekTrend)
+
+  const genderBuckets = splitGenderWindow(genderWindowRows, currentWeekStart, previousWeekStart)
+  const lastWeekFemaleAttraction = calculateAttraction(genderBuckets.previous.female.like, genderBuckets.previous.female.normal)
+  const lastWeekMaleAttraction = calculateAttraction(genderBuckets.previous.male.like, genderBuckets.previous.male.normal)
+
+  const scoreChange = Math.round((currentWeekScore - lastWeekScore) * 10) / 10
+  const rankChange = scoreChange > 0 ? Math.ceil(scoreChange * 2) : Math.floor(scoreChange * 2)
+
+  return {
+    currentWeekScore: Math.round(currentWeekScore * 10) / 10,
+    lastWeekScore: Math.round(lastWeekScore * 10) / 10,
+    scoreChange,
+    currentWeekRatings,
+    lastWeekRatings,
+    rankChange,
+    femaleAttractionChange: Math.round((currentFemaleAttraction - lastWeekFemaleAttraction) * 10) / 10,
+    maleAttractionChange: Math.round((currentMaleAttraction - lastWeekMaleAttraction) * 10) / 10
+  }
+}
+
+function averageScore(trend: DailyScore[]): number {
+  const daysWithRatings = trend.filter((day) => day.ratingCount > 0)
+  if (daysWithRatings.length === 0) return 0
+  return daysWithRatings.reduce((sum, day) => sum + day.score, 0) / daysWithRatings.length
+}
+
+function sumRatings(trend: DailyScore[]): number {
+  return trend.reduce((sum, day) => sum + day.ratingCount, 0)
+}
+
+function splitGenderWindow(
+  rows: Array<{ date: string; gender: string | null; type: string; count: number | bigint }>,
+  currentWeekStart: Date,
+  previousWeekStart: Date
+) {
+  const buckets = {
+    current: {
+      female: { like: 0, normal: 0 },
+      male: { like: 0, normal: 0 }
+    },
+    previous: {
+      female: { like: 0, normal: 0 },
+      male: { like: 0, normal: 0 }
+    }
+  }
+
+  const currentStartKey = formatDateKey(currentWeekStart)
+  const previousStartKey = formatDateKey(previousWeekStart)
+
+  for (const row of rows) {
+    const gender = row.gender === 'female' ? 'female' : row.gender === 'male' ? 'male' : null
+    if (!gender) continue
+    const type = row.type === 'like' ? 'like' : row.type === 'normal' ? 'normal' : null
+    if (!type) continue
+
+    if (row.date >= currentStartKey) {
+      buckets.current[gender][type] += Number(row.count)
+    } else if (row.date >= previousStartKey) {
+      buckets.previous[gender][type] += Number(row.count)
+    }
+  }
+
+  return buckets
+}
+
+export function clearJourneyCache() {
+  journeyCache.clear()
 }
 
 function generateAchievements(totalRatings: number, likeCount: number, totalScore: number): Achievement[] {

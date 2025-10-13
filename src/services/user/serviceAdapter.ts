@@ -1,16 +1,31 @@
-import { upsertUser, type CreateUserData, getUserById, getUserByEmail, getUserByProvider, updateUser as svcUpdateUser, deleteUser as svcDeleteUser, getUserPublicInfo, generateShareableLink } from './index'
+import {
+  upsertUser,
+  type CreateUserData,
+  getUserById,
+  getUserByEmail,
+  getUserByProvider,
+  getUserByDeviceId,
+  createGuestUser,
+  updateUser as svcUpdateUser,
+  deleteUser as svcDeleteUser
+} from './index'
 
 export interface UpdateUserData {
   name?: string
   avatar?: string
   gender?: string
+  bio?: string
+  location?: string
+  language?: string
+  timezone?: string
+  notificationsEnabled?: boolean
 }
 
 export class UserService {
   static async upsertUser(data: CreateUserData) {
     return upsertUser(data)
   }
-  static async getUserById(id: string) {
+  static async getUserById(id: number | string) {
     return getUserById(id)
   }
   static async getUserByEmail(email: string) {
@@ -19,17 +34,17 @@ export class UserService {
   static async getUserByProvider(provider: string, providerId: string) {
     return getUserByProvider(provider, providerId)
   }
-  static async updateUser(id: string, data: UpdateUserData) {
+  static async getUserByDeviceId(deviceId: string) {
+    return getUserByDeviceId(deviceId)
+  }
+  static async createGuestUser(deviceId: string) {
+    return createGuestUser(deviceId)
+  }
+  static async updateUser(id: number | string, data: UpdateUserData) {
     return svcUpdateUser(id, data)
   }
-  static async deleteUser(id: string) {
+  static async deleteUser(id: number | string) {
     return svcDeleteUser(id)
-  }
-  static async getUserPublicInfo(userId: string) {
-    return getUserPublicInfo(userId)
-  }
-  static async generateShareableLink(userId: string) {
-    return generateShareableLink(userId)
   }
 }
 
