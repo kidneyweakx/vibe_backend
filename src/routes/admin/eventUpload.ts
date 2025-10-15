@@ -1,25 +1,40 @@
 import { Elysia, t } from 'elysia'
 import { requireWritePermission } from '../../middlewares/admin'
-import { uploadEventImage } from '../../services/event'
+import { createEvent, uploadEventImage } from '../../services/event'
 
 export const adminEventUploadRoute = new Elysia()
   .use(requireWritePermission)
   .post('/events', async ({ body, set }) => {
     try {
-      const { title, description, imageBase64, startsAt, endsAt } = body as {
+      const { title, description, imageBase64, externalUrl, startsAt, endsAt } = body as {
         title: string
         description?: string
-        imageBase64: string
+        imageBase64?: string
+        externalUrl?: string
         startsAt: string
         endsAt?: string
       }
-      const result = await uploadEventImage({
-        title,
-        description,
-        imageBase64,
-        startsAt: new Date(startsAt),
-        endsAt: endsAt ? new Date(endsAt) : undefined
-      })
+      if (!imageBase64 && !externalUrl) {
+        set.status = 400
+        return { success: false, error: 'imageBase64 or externalUrl is required' }
+      }
+      const result = await createEvent(
+        imageBase64
+          ? {
+              title,
+              description,
+              imageBase64,
+              startsAt: new Date(startsAt),
+              endsAt: endsAt ? new Date(endsAt) : undefined,
+            }
+          : {
+              title,
+              description,
+              externalUrl: externalUrl!,
+              startsAt: new Date(startsAt),
+              endsAt: endsAt ? new Date(endsAt) : undefined,
+            }
+      )
       return { success: true, data: result }
     } catch (error: any) {
       set.status = 400
@@ -29,7 +44,8 @@ export const adminEventUploadRoute = new Elysia()
     body: t.Object({
       title: t.String(),
       description: t.Optional(t.String()),
-      imageBase64: t.String(),
+      imageBase64: t.Optional(t.String()),
+      externalUrl: t.Optional(t.String()),
       startsAt: t.String(),
       endsAt: t.Optional(t.String())
     })
