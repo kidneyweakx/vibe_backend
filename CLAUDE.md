@@ -45,7 +45,6 @@ bun run test:seed             # Seed fake test data
 ### Database Configuration (dbConfig.ts)
 - **Development**: Uses local SQLite when `DATABASE_URL` is set to `file:` or `:memory:`
 - **Production**: Uses Cloudflare D1 via PrismaD1 adapter (env.DB binding)
-- **Turso fallback**: Configured for libsql connection via `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`
 - Singleton pattern with connection guard (`isConnecting` flag)
 
 ### Dual Runtime Support
@@ -142,6 +141,11 @@ Services in `src/services/` contain business logic, separated from route handler
   - One tag per photo (`photoId`, `tagId`)
   - Provider uniqueness (`provider`, `providerId`)
 - Photo tags use join table (`PhotoTag`) for many-to-many
+- Photo model includes optional `takenAt` field:
+  - Stores original photo capture time from EXIF metadata (ISO 8601 string in SQLite/D1)
+  - Extracted by iOS client before upload
+  - If not provided, defaults to `uploadedAt` for sorting/display purposes
+  - Index on `[userId, takenAt]` for efficient chronological queries
 
 ## Development Workflow
 
@@ -156,7 +160,7 @@ When adding new features:
 
 ## Key Files
 - `src/app.ts`: Main Elysia app with route registration and middleware
-- `src/dbConfig.ts`: Prisma client initialization with D1/Turso/SQLite support
+- `src/dbConfig.ts`: Prisma client initialization with D1/SQLite support
 - `src/env.ts`: Cross-runtime environment variable handling
 - `prisma/schema.prisma`: Database schema
 - `wrangler.toml`: Cloudflare Workers configuration with D1 and R2 bindings
@@ -220,4 +224,3 @@ When adding new features:
 - Never commit `.env` files
 - Use `.env.example` as template
 - Required vars: `DATABASE_URL`, `API_ACCESS_TOKEN`, R2 configuration
-- Optional vars: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`

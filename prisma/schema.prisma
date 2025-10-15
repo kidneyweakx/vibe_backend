@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(cuid())
   email        String   @unique
   name         String?
   avatar       String?
@@ -63,7 +63,7 @@ model User {
 
 model Photo {
   id               String   @id @default(cuid())
-  userId           Int
+  userId           String
   key              String   @unique // R2 storage key
   url              String   // Public URL
   format           String   // image format (png, jpg, etc.)
@@ -88,8 +88,8 @@ model Photo {
 
 model Rating {
   id        String   @id @default(cuid())
-  raterId   Int      // 評分者
-  ratedUserId Int    // 被評分者
+  raterId   String   // 評分者
+  ratedUserId String  // 被評分者
   photoId   String   // 被評分的照片
   type      String   // "like" (❤️) or "normal" (🔄)
 
@@ -155,12 +155,12 @@ model Event {
 model Report {
   id         String   @id @default(cuid())
   photoId    String
-  reporterId Int?
+  reporterId String?
   reason     String   // "inappropriate" | "spam" | "harassment" | "nudity" | "violence" | "other"
   details    String?  // Optional detailed explanation
   status     String   @default("pending") // "pending" | "reviewed" | "dismissed" | "action_taken"
   reviewedAt DateTime?
-  reviewedBy Int?     // Admin user ID who reviewed
+  reviewedBy String?  // Admin user ID who reviewed
   createdAt  DateTime @default(now())
 
   photo    Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
