@@ -1,15 +1,10 @@
 import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../r2/presign'
 
-export async function getUserStats(userId: number | string) {
+export async function getUserStats(userId: string) {
   const prisma = getPrisma()
 
-  const numericUserId = typeof userId === 'number' ? userId : Number(userId)
-  if (!Number.isFinite(numericUserId)) {
-    throw new Error('User not found')
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: numericUserId } })
+  const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) throw new Error('User not found')
 
   // Use materialized stats instead of recalculating
@@ -40,7 +35,7 @@ export async function getUserStats(userId: number | string) {
 
   // Get recent ratings
   const recentRatings = await prisma.rating.findMany({
-    where: { ratedUserId: numericUserId },
+    where: { ratedUserId: userId },
     include: { photo: true },
     orderBy: { createdAt: 'desc' },
     take: 10

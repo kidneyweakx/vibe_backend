@@ -14,6 +14,7 @@ export async function updateEvent(params: UpdateEventParams) {
   if (typeof params.description !== 'undefined') data.description = params.description
   if (typeof params.startsAt !== 'undefined') data.startsAt = params.startsAt
   if (typeof params.endsAt !== 'undefined') data.endsAt = params.endsAt
+  if (typeof (params as any).eventUrl !== 'undefined') data.url = (params as any).eventUrl
 
   // Replace image if provided
   if (params.newImageBase64) {
@@ -35,7 +36,7 @@ export async function updateEvent(params: UpdateEventParams) {
       ContentLength: bytes.length,
     }))
     data.key = key
-    data.url = existing.url // keep original public base, actual public GET is signed per request; if we have getPublicObjectUrl we could update
+    // Keep existing event page URL as-is unless explicitly updated via eventUrl
     data.imageUrl = undefined
     data.format = 'webp'
     data.size = bytes.length
@@ -45,7 +46,7 @@ export async function updateEvent(params: UpdateEventParams) {
       await deleteFile(existing.key)
     }
     data.key = `external:${params.externalUrl}`
-    data.url = params.externalUrl
+    // Replace only the image with external URL; event page URL remains unless eventUrl is provided
     data.imageUrl = params.externalUrl
     data.format = 'external'
     data.size = 0

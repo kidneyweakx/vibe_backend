@@ -15,7 +15,6 @@
     "wrangler:tail": "wrangler tail",
     "init:test-d1": "bun run scripts/init-test-d1.ts",
     "init:tags": "bun run scripts/init-tags.ts",
-    "init:tags:en": "bun run scripts/init-tags-en.ts",
     "init:preset-tags": "bun run scripts/init-preset-tags.ts",
     "seed:journey:d1": "bun run scripts/seed-journey-data-d1.ts",
     "cleanup:r2dev": "bun run scripts/cleanup-r2dev.ts",

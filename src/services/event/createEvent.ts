@@ -32,7 +32,7 @@ export async function createEvent(params: CreateEventParams) {
         title: params.title,
         description: params.description,
         key,
-        url,
+        url: params.eventUrl || '',
         imageUrl: url,
         format: 'webp',
         size: bytes.length,
@@ -46,14 +46,14 @@ export async function createEvent(params: CreateEventParams) {
 
   // Create via external URL
   if ('externalUrl' in params && params.externalUrl) {
-    const url = params.externalUrl
+    const image = params.externalUrl
     const event = await prisma.event.create({
       data: {
         title: params.title,
         description: params.description,
-        key: `external:${url}`,
-        url,
-        imageUrl: url,
+        key: `external:${image}`,
+        url: params.eventUrl || '',
+        imageUrl: image,
         format: 'external',
         size: 0,
         startsAt: params.startsAt,

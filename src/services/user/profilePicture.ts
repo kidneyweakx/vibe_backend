@@ -4,7 +4,7 @@ import { updateUser } from './index'
 import { getPresignedGetUrl } from '../r2/presign'
 import type { R2UploadResult } from '../interfaces/file'
 
-export async function uploadProfilePicture(userId: number | string, imageFile: File): Promise<{
+export async function uploadProfilePicture(userId: string, imageFile: File): Promise<{
   success: boolean
   data?: {
     photoId: string
@@ -18,9 +18,9 @@ export async function uploadProfilePicture(userId: number | string, imageFile: F
 }> {
   try {
     const prisma = getPrisma()
-    let numericUserId: number
+    let actualUserId: string
 
-    if (typeof userId === 'string' && userId.startsWith('guest_')) {
+    if (userId.startsWith('guest_')) {
       let guest = await prisma.user.findFirst({ where: { providerId: userId } })
       if (!guest) {
         guest = await prisma.user.create({
@@ -33,26 +33,22 @@ export async function uploadProfilePicture(userId: number | string, imageFile: F
           }
         })
       }
-      numericUserId = guest.id
+      actualUserId = guest.id
     } else {
-      numericUserId = typeof userId === 'number' ? userId : Number(userId)
-      if (!Number.isFinite(numericUserId)) {
-        throw new Error(`User with ID ${userId} not found`)
-      }
-
-      const user = await prisma.user.findUnique({ where: { id: numericUserId } })
+      const user = await prisma.user.findUnique({ where: { id: userId } })
       if (!user) throw new Error(`User with ID ${userId} not found`)
+      actualUserId = user.id
     }
 
     // Upload to R2 with profile picture specific options
     const uploadOptions = {
-      key: `profile-pictures/${numericUserId}/${Date.now()}-${imageFile.name}`,
+      key: `profile-pictures/${actualUserId}/${Date.now()}-${imageFile.name}`,
       allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
       maxSize: 5 * 1024 * 1024 // 5MB
     }
 
     const uploadResult: R2UploadResult = await uploadToR2(imageFile, uploadOptions)
-    
+
     if (!uploadResult.success) {
       return { success: false, error: uploadResult.error || 'Upload failed' }
     }
@@ -63,14 +59,14 @@ export async function uploadProfilePicture(userId: number | string, imageFile: F
 
     // Remove old profile picture if exists
     await getPrisma().photo.updateMany({
-      where: { userId: numericUserId, isProfilePicture: true },
+      where: { userId: actualUserId, isProfilePicture: true },
       data: { isProfilePicture: false }
     })
 
     // Create photo record in database
     const photo = await getPrisma().photo.create({
       data: {
-        userId: numericUserId,
+        userId: actualUserId,
         key: uploadResult.key,
         url: uploadResult.url,
         format: imageFile.type.split('/')[1] || 'png',
@@ -84,7 +80,7 @@ export async function uploadProfilePicture(userId: number | string, imageFile: F
 
     // Update user profile with new avatar key (not URL)
     try {
-      await updateUser(numericUserId, { avatar: uploadResult.key })
+      await updateUser(actualUserId, { avatar: uploadResult.key })
     } catch (error: any) {
       return { success: false, error: 'Failed to update user profile' }
     }

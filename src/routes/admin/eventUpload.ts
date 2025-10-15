@@ -6,11 +6,12 @@ export const adminEventUploadRoute = new Elysia()
   .use(requireWritePermission)
   .post('/events', async ({ body, set }) => {
     try {
-      const { title, description, imageBase64, externalUrl, startsAt, endsAt } = body as {
+      const { title, description, imageBase64, externalUrl, eventUrl, startsAt, endsAt } = body as {
         title: string
         description?: string
         imageBase64?: string
         externalUrl?: string
+        eventUrl?: string
         startsAt: string
         endsAt?: string
       }
@@ -24,6 +25,7 @@ export const adminEventUploadRoute = new Elysia()
               title,
               description,
               imageBase64,
+              eventUrl,
               startsAt: new Date(startsAt),
               endsAt: endsAt ? new Date(endsAt) : undefined,
             }
@@ -31,6 +33,7 @@ export const adminEventUploadRoute = new Elysia()
               title,
               description,
               externalUrl: externalUrl!,
+              eventUrl,
               startsAt: new Date(startsAt),
               endsAt: endsAt ? new Date(endsAt) : undefined,
             }
@@ -46,6 +49,7 @@ export const adminEventUploadRoute = new Elysia()
       description: t.Optional(t.String()),
       imageBase64: t.Optional(t.String()),
       externalUrl: t.Optional(t.String()),
+      eventUrl: t.Optional(t.String()),
       startsAt: t.String(),
       endsAt: t.Optional(t.String())
     })

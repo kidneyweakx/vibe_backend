@@ -50,6 +50,11 @@ function fallbackColumns(table: string): Set<string> {
       'id','userId','key','url','format','size','uploadedAt'
     ])
   }
+  if (table === 'tags') {
+    return new Set([
+      'id','name','displayName','emoji','color','category','normal','createdAt'
+    ])
+  }
   return new Set()
 }
 

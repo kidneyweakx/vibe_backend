@@ -2,7 +2,7 @@ import getPrisma from '../../dbConfig'
 import { getPresignedGetUrl } from '../r2/presign'
 import type { PhotoListResponse, PhotoInfo } from '../interfaces/file'
 
-export async function getAllPhotos(params: { page?: number; limit?: number; userId?: number | string; tagId?: string }): Promise<PhotoListResponse> {
+export async function getAllPhotos(params: { page?: number; limit?: number; userId?: string; tagId?: string }): Promise<PhotoListResponse> {
   const page = params.page && params.page > 0 ? params.page : 1
   const limit = params.limit && params.limit > 0 ? params.limit : 20
   const skip = (page - 1) * limit
@@ -11,11 +11,7 @@ export async function getAllPhotos(params: { page?: number; limit?: number; user
     key: { not: { startsWith: 'profile-pictures/' } }
   }
   if (params.userId !== undefined) {
-    const numericUserId = typeof params.userId === 'number' ? params.userId : Number(params.userId)
-    if (!Number.isFinite(numericUserId)) {
-      throw new Error('Invalid user identifier')
-    }
-    where.userId = numericUserId
+    where.userId = params.userId
   }
   if (params.tagId) where.photoTags = { some: { tagId: params.tagId } }
   const [photos, totalCount] = await Promise.all([

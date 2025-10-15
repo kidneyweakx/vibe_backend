@@ -7,13 +7,14 @@ export const adminEventEditRoute = new Elysia()
   .patch('/events/:eventId', async ({ params, body, set }) => {
     try {
       const { eventId } = params as { eventId: string }
-      const { title, description, startsAt, endsAt, newImageBase64, externalUrl } = body as {
+      const { title, description, startsAt, endsAt, newImageBase64, externalUrl, eventUrl } = body as {
         title?: string
         description?: string
         startsAt?: string
         endsAt?: string
         newImageBase64?: string
         externalUrl?: string
+        eventUrl?: string
       }
 
       const updated = await updateEvent({
@@ -24,6 +25,7 @@ export const adminEventEditRoute = new Elysia()
         endsAt: endsAt ? new Date(endsAt) : undefined,
         newImageBase64,
         externalUrl,
+        eventUrl,
       })
       return { success: true, data: updated }
     } catch (error: any) {
@@ -41,6 +43,7 @@ export const adminEventEditRoute = new Elysia()
       endsAt: t.Optional(t.String()),
       newImageBase64: t.Optional(t.String()),
       externalUrl: t.Optional(t.String()),
+      eventUrl: t.Optional(t.String()),
     })
   })
 

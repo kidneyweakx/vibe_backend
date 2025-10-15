@@ -58,23 +58,17 @@ const logger = {
   }
 }
 
-export async function getRandomPhotosForRating(userId: number | string, limit: number = 10) {
+export async function getRandomPhotosForRating(userId: string, limit: number = 10) {
   const startTime = Date.now()
-  const numericUserId = typeof userId === 'number' ? userId : Number(userId)
-  if (!Number.isFinite(numericUserId)) {
-    throw new Error('Invalid user identifier')
-  }
-
-  const cacheKey = String(numericUserId)
-  const requestKey = `random-photos-${cacheKey}-${limit}`
+  const requestKey = `random-photos-${userId}-${limit}`
 
   const existing = requestQueue.get(requestKey)
   if (existing && existing.expiresAt > Date.now()) {
-    logger.info('Request already in progress, waiting for result', { userId: cacheKey, limit })
+    logger.info('Request already in progress, waiting for result', { userId, limit })
     return await existing.promise
   }
 
-  const requestPromise = executeRandomPhotosRequest(numericUserId, cacheKey, limit, startTime)
+  const requestPromise = executeRandomPhotosRequest(userId, limit, startTime)
   requestQueue.set(requestKey, { promise: requestPromise, expiresAt: Date.now() + REQUEST_LOCK_TTL })
 
   try {
@@ -84,8 +78,8 @@ export async function getRandomPhotosForRating(userId: number | string, limit: n
   }
 }
 
-async function executeRandomPhotosRequest(userId: number, userKey: string, limit: number, startTime: number) {
-  logger.info('Starting recommendation-based photo fetch', { userId: userKey, limit })
+async function executeRandomPhotosRequest(userId: string, limit: number, startTime: number) {
+  logger.info('Starting recommendation-based photo fetch', { userId, limit })
 
   try {
     const prisma = getPrisma()
@@ -113,7 +107,7 @@ async function executeRandomPhotosRequest(userId: number, userKey: string, limit
       getReportedPhotoIds(prisma)
     ])
 
-    const userProfile = buildUserPreferenceProfile(userKey, userRatings as any)
+    const userProfile = buildUserPreferenceProfile(userId, userRatings as any)
     const isNewUser = userProfile.totalRatings === 0
 
     logger.info('User preference profile built', {
@@ -124,7 +118,7 @@ async function executeRandomPhotosRequest(userId: number, userKey: string, limit
       isNewUser
     })
 
-    const recentlySeen = getRecentlySeen(userKey)
+    const recentlySeen = getRecentlySeen(userId)
     pruneExpiredSeen(recentlySeen)
     const recentlySeenSet = new Set(recentlySeen.keys())
 
@@ -286,7 +280,7 @@ async function executeRandomPhotosRequest(userId: number, userKey: string, limit
 
     const duration = Date.now() - startTime
     logger.info('Recommendation-based photo fetch completed successfully', {
-      userId: userKey,
+      userId,
       limit,
       finalCount: uniqueResults.length,
       duration: `${duration}ms`,
@@ -297,7 +291,7 @@ async function executeRandomPhotosRequest(userId: number, userKey: string, limit
   } catch (error: any) {
     const duration = Date.now() - startTime
     logger.error('Recommendation-based photo fetch failed', {
-      userId: userKey,
+      userId,
       limit,
       duration: `${duration}ms`,
       error: error.message,
