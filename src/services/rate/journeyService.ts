@@ -8,7 +8,7 @@ interface CacheEntry<T> {
 }
 
 export interface JourneyDashboard {
-  userId: number
+  userId: string
   totalScore: number
   likeCount: number
   normalCount: number
@@ -78,15 +78,12 @@ export interface LevelProgress {
 
 const journeyCache = new Map<string, CacheEntry<JourneyDashboard>>()
 
-export async function getJourneyDashboard(userId: number | string): Promise<JourneyDashboard> {
-  const numericId = typeof userId === 'number' ? userId : Number(userId)
-  if (!Number.isFinite(numericId)) {
+export async function getJourneyDashboard(userId: string): Promise<JourneyDashboard> {
+  if (!userId || typeof userId !== 'string') {
     throw new Error('User not found')
   }
 
-  const cacheKey = String(numericId)
-
-  const cached = journeyCache.get(cacheKey)
+  const cached = journeyCache.get(userId)
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data
   }
@@ -94,7 +91,7 @@ export async function getJourneyDashboard(userId: number | string): Promise<Jour
   const prisma = getPrisma()
 
   const user = await prisma.user.findUnique({
-    where: { id: numericId },
+    where: { id: userId },
     select: {
       id: true,
       gender: true,
@@ -143,7 +140,7 @@ export async function getJourneyDashboard(userId: number | string): Promise<Jour
       SELECT u.gender as gender, r.type as type, COUNT(*) as count
       FROM ratings r
       LEFT JOIN users u ON u.id = r.raterId
-      WHERE r.ratedUserId = ${numericId}
+      WHERE r.ratedUserId = ${userId}
       GROUP BY u.gender, r.type
     `,
     prisma.$queryRaw<Array<{ date: string; likeCount: number | bigint; normalCount: number | bigint; totalCount: number | bigint }>>`
@@ -153,7 +150,7 @@ export async function getJourneyDashboard(userId: number | string): Promise<Jour
         SUM(CASE WHEN type = 'normal' THEN 1 ELSE 0 END) as normalCount,
         COUNT(*) as totalCount
       FROM ratings
-      WHERE ratedUserId = ${numericId}
+      WHERE ratedUserId = ${userId}
         AND createdAt >= ${previousWeekStart.toISOString()}
       GROUP BY strftime('%Y-%m-%d', createdAt)
     `,
@@ -165,12 +162,12 @@ export async function getJourneyDashboard(userId: number | string): Promise<Jour
         COUNT(*) as count
       FROM ratings r
       LEFT JOIN users u ON u.id = r.raterId
-      WHERE r.ratedUserId = ${numericId}
+      WHERE r.ratedUserId = ${userId}
         AND r.createdAt >= ${previousWeekStart.toISOString()}
       GROUP BY strftime('%Y-%m-%d', r.createdAt), u.gender, r.type
     `,
     prisma.rating.findMany({
-      where: { ratedUserId: numericId },
+      where: { ratedUserId: userId },
       include: {
         rater: {
           select: { name: true, gender: true }
@@ -226,7 +223,7 @@ export async function getJourneyDashboard(userId: number | string): Promise<Jour
     weeklyProgress
   }
 
-  journeyCache.set(cacheKey, {
+  journeyCache.set(userId, {
     expiresAt: Date.now() + JOURNEY_CACHE_TTL,
     data: dashboard
   })

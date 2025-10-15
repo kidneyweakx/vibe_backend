@@ -12,7 +12,7 @@ interface CacheEntry<T> {
 
 export interface ProfileBundle {
   user: {
-    id: number
+    id: string
     name: string | null
     avatar: string | null
     gender: string | null
@@ -82,13 +82,12 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
   }
 
   const prisma = getPrisma()
-  const numericId = Number(userId)
-  if (!Number.isFinite(numericId)) {
+  if (!userId || typeof userId !== 'string') {
     throw new Error('User not found')
   }
 
   const userPromise = prisma.user.findUnique({
-    where: { id: numericId },
+    where: { id: userId },
     select: {
       id: true,
       name: true,
@@ -101,7 +100,7 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
 
   const latestPhotoPromise = prisma.photo.findFirst({
     where: {
-      userId: numericId,
+      userId: userId,
       isProfilePicture: false
     },
     orderBy: { uploadedAt: 'desc' },
@@ -115,7 +114,7 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
   const photosPromise = includePhotos && limit > 0
     ? prisma.photo.findMany({
         where: {
-          userId: numericId,
+          userId: userId,
           isProfilePicture: false
         },
         include: {
@@ -133,7 +132,7 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
     userPromise,
     latestPhotoPromise,
     photosPromise,
-    getJourneyDashboard(numericId)
+    getJourneyDashboard(userId)
   ])
 
   if (!user) {

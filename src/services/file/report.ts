@@ -12,22 +12,28 @@ export async function createReport(params: {
   const photo = await prisma.photo.findUnique({ where: { id: photoId } })
   if (!photo) throw new Error('Photo not found')
 
-  const numericReporterId = reporterId === undefined
-    ? undefined
-    : typeof reporterId === 'number'
-      ? reporterId
-      : Number(reporterId)
+  let resolvedReporterId: string | undefined
 
-  if (reporterId !== undefined && !Number.isFinite(numericReporterId)) {
-    throw new Error('Invalid reporter identifier')
+  if (reporterId !== undefined) {
+    if (typeof reporterId === 'number') {
+      resolvedReporterId = String(reporterId)
+    } else if (typeof reporterId === 'string') {
+      const trimmed = reporterId.trim()
+      if (!trimmed) {
+        throw new Error('Invalid reporter identifier')
+      }
+      resolvedReporterId = trimmed
+    } else {
+      throw new Error('Invalid reporter identifier')
+    }
   }
 
-  if (numericReporterId !== undefined) {
+  if (resolvedReporterId !== undefined) {
     const existingReport = await prisma.report.findUnique({
       where: {
         photoId_reporterId: {
           photoId,
-          reporterId: numericReporterId
+          reporterId: resolvedReporterId
         }
       }
     })
@@ -40,7 +46,7 @@ export async function createReport(params: {
   return await prisma.report.create({
     data: {
       photoId,
-      reporterId: numericReporterId,
+      reporterId: resolvedReporterId,
       reason,
       details,
       status: 'pending'

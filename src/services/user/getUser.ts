@@ -1,11 +1,10 @@
 import getPrisma from '../../dbConfig'
 
-export async function getUserById(id: number | string) {
-  const numericId = typeof id === 'number' ? id : Number(id)
-  if (!Number.isFinite(numericId)) {
+export async function getUserById(id: string) {
+  if (!id || typeof id !== 'string') {
     return null
   }
-  return await getPrisma().user.findUnique({ where: { id: numericId } })
+  return await getPrisma().user.findUnique({ where: { id } })
 }
 
 export async function getUserByEmail(email: string) {

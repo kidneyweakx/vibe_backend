@@ -1,5 +1,4 @@
 import { UserService } from '../user/serviceAdapter'
-import { getEnvVar } from '../../env'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
 import getPrisma from '../../dbConfig'
@@ -18,14 +17,20 @@ export interface AppleTokenPayload {
 }
 
 export interface AuthResponse {
+  success?: boolean
   user: {
-    id: number
+    id: string
     name: string
     email: string
     isGuest?: boolean
     profileImageURL?: string
+    avatar?: string | null
+    provider?: string | null
+    providerId?: string | null
+    onboardedAt?: string | null
   }
   token?: string
+  needsOnboarding: boolean
 }
 
 export interface AppleSignInData {
@@ -50,37 +55,21 @@ export class AuthService {
   private static readonly JWT_EXPIRES_IN_SECONDS = '30d' // 30 days token expiration
   private static readonly BCRYPT_SALT_ROUNDS = 10
 
-  // Narrow-scope diagnostics to make Prisma/libsql config issues obvious in auth flows
-  private static sanitizeDbUrlHost(urlLike: string | undefined): string {
-    if (!urlLike) return 'missing'
-    try {
-      const normalized = urlLike.replace(/^libsql:\/\//i, 'https://')
-      const u = new URL(normalized)
-      return `present(${u.host})`
-    } catch {
-      return 'present'
-    }
-  }
-
   private static describeDbConfigIssue(): string {
-    const dbUrl = getEnvVar('TURSO_DATABASE_URL')
-    const dbToken = getEnvVar('TURSO_AUTH_TOKEN')
-    const missing: string[] = []
-    if (!dbUrl) missing.push('TURSO_DATABASE_URL')
-    if (!dbToken) missing.push('TURSO_AUTH_TOKEN')
-    if (missing.length > 0) return `missing ${missing.join(', ')}`
-    return 'unexpected database error'
+    const hasWorkerBinding = Boolean((globalThis as any)?.__ENV?.DB)
+    const hasDatabaseUrl = Boolean(process.env.DATABASE_URL)
+    if (hasWorkerBinding || hasDatabaseUrl) {
+      return 'unexpected database error'
+    }
+    return 'database unavailable: ensure env.DB is bound or DATABASE_URL=file:./dev.db is set'
   }
 
   private static logEnvDiagnostics(provider: string, extra?: Record<string, unknown>) {
-    const dbUrl = getEnvVar('TURSO_DATABASE_URL')
-    const dbToken = getEnvVar('TURSO_AUTH_TOKEN')
-    const jwt = process.env.JWT_SECRET
     console.error('auth:diagnostics', {
       provider,
-      tursoDatabaseUrl: this.sanitizeDbUrlHost(dbUrl),
-      tursoAuthToken: dbToken ? 'present' : 'missing',
-      jwtSecret: jwt ? 'present' : 'missing',
+      workerDbBinding: (globalThis as any)?.__ENV?.DB ? 'present' : 'missing',
+      databaseUrl: process.env.DATABASE_URL ? 'present' : 'missing',
+      jwtSecret: process.env.JWT_SECRET ? 'present' : 'missing',
       ...extra
     })
   }
@@ -102,6 +91,35 @@ export class AuthService {
       .setExpirationTime(this.JWT_EXPIRES_IN_SECONDS)
       .sign(secret)
     return jwt
+  }
+
+  static formatAuthResponse(user: any, token?: string): AuthResponse {
+    const onboardedAtValue = user?.onboardedAt ?? null
+    const onboardedAt = onboardedAtValue
+      ? typeof onboardedAtValue === 'string'
+        ? onboardedAtValue
+        : new Date(onboardedAtValue).toISOString()
+      : null
+
+    const idValue = user?.id
+    const id = typeof idValue === 'string' ? idValue : String(idValue)
+
+    return {
+      success: true,
+      token,
+      needsOnboarding: !onboardedAt,
+      user: {
+        id,
+        name: user?.name ?? '',
+        email: user?.email ?? '',
+        isGuest: user?.isGuest ?? false,
+        profileImageURL: user?.avatar ?? undefined,
+        avatar: user?.avatar ?? null,
+        provider: user?.provider ?? null,
+        providerId: user?.providerId ?? null,
+        onboardedAt
+      }
+    }
   }
 
   static async verifyJWTAsync(token: string): Promise<{ userId: string } | null> {
@@ -156,16 +174,7 @@ export class AuthService {
 
     const token = await this.generateJWTAsync(user.id)
 
-    return {
-      user: {
-        id: user.id,
-        name: user.name ?? '',
-        email: user.email,
-        isGuest: user.isGuest,
-        profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
+    return AuthService.formatAuthResponse(user, token)
   }
 
   static async signInWithPassword(email: string, password: string): Promise<AuthResponse> {
@@ -184,16 +193,7 @@ export class AuthService {
 
     const token = await this.generateJWTAsync(user.id)
 
-    return {
-      user: {
-        id: user.id,
-        name: user.name ?? '',
-        email: user.email,
-        isGuest: user.isGuest,
-        profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
+    return AuthService.formatAuthResponse(user, token)
   }
 
   static async verifyGoogleToken(idToken: string, accessToken?: string): Promise<GoogleTokenPayload | null> {
@@ -276,16 +276,7 @@ export class AuthService {
 
       const token = await this.generateJWTAsync(user.id)
 
-      return {
-        user: {
-          id: user.id,
-          name: user.name || 'Guest User',
-          email: user.email,
-          isGuest: true,
-          profileImageURL: user.avatar ?? undefined
-        },
-        token
-      }
+      return AuthService.formatAuthResponse(user, token)
     } catch (error: any) {
       this.logEnvDiagnostics('guest', { error: String(error?.message || error), deviceId })
       throw new Error(`Guest authentication failed: ${this.describeDbConfigIssue()}`)
@@ -315,15 +306,7 @@ export class AuthService {
 
     const token = await this.generateJWTAsync(user.id)
 
-    return {
-      user: {
-        id: user.id,
-        name: user.name || '',
-        email: user.email,
-          profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
+    return AuthService.formatAuthResponse(user, token)
   }
 
   static async signInWithApple(data: AppleSignInData): Promise<AuthResponse> {
@@ -368,27 +351,21 @@ export class AuthService {
 
     const token = await this.generateJWTAsync(user.id)
 
-    return {
-      user: {
-        id: user.id,
-        name: user.name || '',
-        email: user.email,
-        profileImageURL: user.avatar ?? undefined
-      },
-      token
-    }
+    return AuthService.formatAuthResponse(user, token)
   }
 
 
   static async getUserFromToken(token: string) {
     const decoded = await this.verifyJWTAsync(token)
-    if (!decoded) return null
-
-    const numericId = Number(decoded.userId)
-    if (!Number.isFinite(numericId)) {
+    if (!decoded) {
       return null
     }
 
-    return UserService.getUserById(numericId)
+    const userId = decoded.userId
+    if (!userId || typeof userId !== 'string') {
+      return null
+    }
+
+    return UserService.getUserById(userId)
   }
 }

@@ -37,6 +37,29 @@ const logger = {
   error: (message: string, error?: any) => {
     const timestamp = new Date().toISOString()
     console.error(`[${timestamp}] [RandomPhotosV2] ERROR: ${message}`, error)
+  },
+  warn: (message: string, data?: any) => {
+    const timestamp = new Date().toISOString()
+    console.warn(`[${timestamp}] [RandomPhotosV2] WARN: ${message}`, data ? JSON.stringify(data, null, 2) : '')
+  }
+}
+
+async function ensureRatingSchema(prisma: ReturnType<typeof getPrisma>) {
+  try {
+    const columns = await prisma.$queryRaw<{ name: string }[]>`PRAGMA table_info('ratings')`
+    const hasRaterElo = columns.some(column => column.name === 'raterEloAtTime')
+
+    if (!hasRaterElo) {
+      logger.warn('Missing raterEloAtTime column, adding for backward compatibility')
+      const executeRaw = (prisma as any).$executeRawUnsafe as ((query: string) => Promise<unknown>) | undefined
+      if (typeof executeRaw === 'function') {
+        await executeRaw(`ALTER TABLE "ratings" ADD COLUMN "raterEloAtTime" REAL`)
+      } else {
+        logger.warn('Unable to add raterEloAtTime column automatically; missing executeRaw capability')
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to ensure rating schema', error)
   }
 }
 
@@ -45,23 +68,23 @@ const logger = {
  */
 export async function getRandomPhotosV2(userId: number | string, limit: number = 10): Promise<any[]> {
   const startTime = Date.now()
-  const numericUserId = typeof userId === 'number' ? userId : Number(userId)
-  
-  if (!Number.isFinite(numericUserId)) {
+  const userIdString = typeof userId === 'number' ? String(userId) : String(userId || '').trim()
+
+  if (!userIdString) {
     throw new Error('Invalid user identifier')
   }
 
-  const requestKey = `photos-${numericUserId}-${limit}`
+  const requestKey = `photos-${userIdString}-${limit}`
   
   // Check for existing request
   const existing = requestQueue.get(requestKey)
   if (existing && existing.expiresAt > Date.now()) {
-    logger.info('Using existing request', { userId: numericUserId })
+    logger.info('Using existing request', { userId: userIdString })
     return await existing.promise
   }
 
   // Create new request
-  const requestPromise = executeRecommendationQuery(numericUserId, limit, startTime)
+  const requestPromise = executeRecommendationQuery(userIdString, limit, startTime)
   requestQueue.set(requestKey, {
     promise: requestPromise,
     expiresAt: Date.now() + REQUEST_LOCK_TTL
@@ -78,11 +101,12 @@ export async function getRandomPhotosV2(userId: number | string, limit: number =
  * Execute the recommendation query with optimizations
  */
 async function executeRecommendationQuery(
-  userId: number,
+  userId: string,
   limit: number,
   startTime: number
 ): Promise<any[]> {
   const prisma = getPrisma()
+  await ensureRatingSchema(prisma)
   
   try {
     // 1. Get user profile (cached if available)
@@ -103,7 +127,12 @@ async function executeRecommendationQuery(
         }),
         prisma.rating.findMany({
           where: { raterId: userId },
-          include: {
+          // Explicitly select only existing columns to avoid selecting missing optional columns
+          select: {
+            id: true,
+            photoId: true,
+            type: true,
+            createdAt: true,
             ratedUser: {
               select: {
                 id: true,

@@ -11,45 +11,49 @@ export interface UpdateUserData {
   notificationsEnabled?: boolean
 }
 
-export async function updateUser(id: number | string, data: UpdateUserData) {
-  const numericId = typeof id === 'number' ? id : Number(id)
-  if (!Number.isFinite(numericId)) {
+export async function updateUser(id: string, data: UpdateUserData) {
+  if (!id || typeof id !== 'string') {
     throw new Error('User not found')
   }
-  return await getPrisma().user.update({ where: { id: numericId }, data: { ...data, updatedAt: new Date() } })
+  return await getPrisma().user.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
 }
 
 /**
  * Soft delete user - preserves ID but clears all personal data
  * ID is never recycled to maintain data integrity
  */
-export async function deleteUser(id: number | string) {
-  const numericId = typeof id === 'number' ? id : Number(id)
-  if (!Number.isFinite(numericId)) {
+export async function deleteUser(id: string) {
+  if (!id || typeof id !== 'string') {
     throw new Error('User not found')
   }
   const prisma = getPrisma()
 
   // First delete all user's data (cascade will handle related records)
-  await prisma.photo.deleteMany({ where: { userId: numericId } })
-  await prisma.rating.deleteMany({ where: { raterId: numericId } })
-  await prisma.onboarding.deleteMany({ where: { userId: numericId } })
+  await prisma.photo.deleteMany({ where: { userId: id } })
+  await prisma.rating.deleteMany({ where: { raterId: id } })
 
   // Soft delete: clear personal data but keep the user ID
   return await prisma.user.update({
-    where: { id: numericId },
+    where: { id },
     data: {
-      email: `deleted_${numericId}@deleted.local`,
+      email: `deleted_${id}@deleted.local`,
       name: null,
       avatar: null,
       gender: null,
-      provider: null,
-      providerId: null,
+      provider: 'deleted',
+      providerId: `deleted_${id}`,
       deviceId: null,
       bio: null,
       location: null,
       language: null,
       timezone: null,
+      notificationsEnabled: false,
+      ageRange: null,
+      vibeLevel: 0,
+      timeInvestmentHours: 0,
+      tosVersion: null,
+      privacyVersion: null,
+      onboardedAt: null,
       isDeleted: true,
       deletedAt: new Date(),
       // Reset stats

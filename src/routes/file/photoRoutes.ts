@@ -125,7 +125,7 @@ export const photoRoutes = new Elysia()
   // Confirm upload completed (for presigned URL uploads)
   .post('/confirm', async ({ body, user, set }: any) => {
     try {
-      const { key, size, isProfilePicture = false } = body
+      const { key, size, sizeBytes, isProfilePicture = false } = body
 
       if (!key) {
         set.status = 400
@@ -143,7 +143,7 @@ export const photoRoutes = new Elysia()
         userId: user.id,
         key,
         format,
-        size: size || 0,
+        size: sizeBytes || size || 0,
         isProfilePicture
       })
 
@@ -162,6 +162,8 @@ export const photoRoutes = new Elysia()
     body: t.Object({
       key: t.String(),
       size: t.Optional(t.Number()),
+      sizeBytes: t.Optional(t.Number()),
+      contentType: t.Optional(t.String()),
       isProfilePicture: t.Optional(t.Boolean())
     })
   })

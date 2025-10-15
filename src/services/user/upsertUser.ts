@@ -1,4 +1,9 @@
 import getPrisma from '../../dbConfig'
+import ensureUserSchema from './ensureUserSchema'
+import { customAlphabet } from 'nanoid'
+
+// Generate CUID-like ID
+const generateId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 25)
 
 export interface CreateUserData {
   email: string
@@ -47,43 +52,73 @@ export async function upsertUser(data: CreateUserData) {
   try {
     logger.info('Obtaining Prisma client');
     const prisma = getPrisma()
+    await ensureUserSchema(prisma)
     logger.info('Prisma client obtained successfully')
     
-    logger.info('Attempting user upsert', { 
-      safeEmail,
-      originalEmail: data.email,
+    logger.info('Checking for existing user by provider/providerId', {
       provider: data.provider,
       providerId: data.providerId
-    });
-    
-    const dbOperationStart = Date.now();
-    const result = await prisma.user.upsert({
-      where: { provider_providerId: { provider: data.provider, providerId: data.providerId } },
-      update: {
+    })
+
+    const existingUser = await prisma.user.findUnique({
+      where: { provider_providerId: { provider: data.provider, providerId: data.providerId } }
+    })
+
+    if (existingUser) {
+      logger.info('Existing user found, updating record', { userId: existingUser.id })
+      const dbOperationStart = Date.now()
+      const updatedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          email: safeEmail,
+          name: data.name,
+          avatar: data.avatar,
+          gender: data.gender,
+          isGuest: data.isGuest ?? existingUser.isGuest ?? false,
+          ...(data.deviceId ? { deviceId: data.deviceId } : {}),
+          updatedAt: new Date()
+        }
+      })
+      const dbOperationDuration = Date.now() - dbOperationStart
+
+      const duration = Date.now() - startTime
+      logger.info('User update completed successfully', {
+        userId: updatedUser.id,
+        duration: `${duration}ms`,
+        dbOperationDuration: `${dbOperationDuration}ms`,
+        wasCreated: false
+      })
+
+      return updatedUser
+    }
+
+    logger.info('No existing user found, creating new record')
+
+    const dbOperationStart = Date.now()
+    const createdUser = await prisma.user.create({
+      data: {
+        id: generateId(),
         email: safeEmail,
         name: data.name,
         avatar: data.avatar,
         gender: data.gender,
+        provider: data.provider,
+        providerId: data.providerId,
         isGuest: data.isGuest ?? false,
-        updatedAt: new Date()
-      },
-      create: {
-        ...data,
-        email: safeEmail,
-        isGuest: data.isGuest ?? false
+        ...(data.deviceId ? { deviceId: data.deviceId } : {})
       }
-    });
-    const dbOperationDuration = Date.now() - dbOperationStart;
+    })
+    const dbOperationDuration = Date.now() - dbOperationStart
 
-    const duration = Date.now() - startTime;
-    logger.info('User upsert completed successfully', {
-      userId: result.id,
+    const duration = Date.now() - startTime
+    logger.info('User create completed successfully', {
+      userId: createdUser.id,
       duration: `${duration}ms`,
       dbOperationDuration: `${dbOperationDuration}ms`,
-      wasCreated: !result.updatedAt || (result.updatedAt.getTime() - result.createdAt.getTime()) < 1000
-    });
+      wasCreated: true
+    })
 
-    return result;
+    return createdUser
   } catch (error: any) {
     const duration = Date.now() - startTime;
     logger.error('User upsert failed', {
@@ -97,7 +132,9 @@ export async function upsertUser(data: CreateUserData) {
     const message: string = typeof error?.message === 'string' ? error.message.toLowerCase() : ''
     const isUniqueEmailConflict = error?.code === 'P2002' || (message.includes('unique constraint') && message.includes('email'))
     
-    if (!isUniqueEmailConflict) {
+    const isRecordNotFound = error?.code === 'P2025'
+
+    if (!isUniqueEmailConflict && !isRecordNotFound) {
       logger.error('Non-unique constraint error, rethrowing', { error: error.message });
       throw error;
     }
@@ -106,6 +143,7 @@ export async function upsertUser(data: CreateUserData) {
     
     try {
       const prisma = getPrisma()
+      await ensureUserSchema(prisma)
       logger.debug('Looking up existing user by email', { safeEmail });
       
       const existingByEmail = await prisma.user.findUnique({ where: { email: safeEmail } })
@@ -130,7 +168,8 @@ export async function upsertUser(data: CreateUserData) {
           name: data.name ?? existingByEmail.name,
           avatar: data.avatar ?? existingByEmail.avatar,
           gender: data.gender ?? existingByEmail.gender ?? undefined,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          ...(data.deviceId ? { deviceId: data.deviceId } : {})
         }
       });
       const updateDuration = Date.now() - updateStart;

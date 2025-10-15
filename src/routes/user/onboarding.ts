@@ -54,8 +54,10 @@ export const onboardingRoute = new Elysia()
         isGuest: auth.provider === 'guest'
       })
 
-      // Update user with onboarding-specific data
-      await getPrisma().user.update({
+      const prisma = getPrisma()
+
+      // Update user with onboarding-specific data and capture latest record
+      const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
           // Profile data
@@ -74,25 +76,15 @@ export const onboardingRoute = new Elysia()
       })
 
       // Generate JWT token
-      const token = await AuthService.generateJWTAsync(user.id)
+      const token = await AuthService.generateJWTAsync(updatedUser.id)
 
       const duration = Date.now() - startTime
       logger.info('Onboarding completed', {
-        userId: user.id,
+        userId: updatedUser.id,
         duration: `${duration}ms`
       })
 
-      return {
-        success: true,
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          avatar: user.avatar,
-          gender: user.gender
-        }
-      }
+      return AuthService.formatAuthResponse(updatedUser, token)
     } catch (error: any) {
       const duration = Date.now() - startTime
       logger.error('Onboarding failed', {

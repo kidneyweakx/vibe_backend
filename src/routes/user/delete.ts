@@ -2,6 +2,8 @@ import { Elysia } from 'elysia'
 import getPrisma from '../../dbConfig'
 import { requireAuth } from '../../middlewares/auth'
 import { deleteFile } from '../../services/file'
+import { UserService } from '../../services/user/serviceAdapter'
+import { invalidateUserCache } from '../../services/rate/getRandomPhotosV2'
 
 export const deleteAccountRoute = new Elysia()
   .use(requireAuth)
@@ -17,29 +19,32 @@ export const deleteAccountRoute = new Elysia()
       const prisma = getPrisma()
 
       // Fetch all user photos first (keys needed for R2 deletion)
-      const photos = await prisma.photo.findMany({ where: { userId: user.id } })
+      const photos = await prisma.photo.findMany({
+        where: { userId: user.id },
+        select: { id: true, key: true }
+      })
 
       // Delete R2 objects for each photo (best-effort)
       for (const photo of photos) {
-        try {
-          await deleteFile(photo.key)
-        } catch (e) {
-          console.warn(`Failed to delete R2 object for photo ${photo.id}:`, e)
-          // continue even if one deletion fails; DB cascades will still remove records
+        const result = await deleteFile(photo.key)
+        if (!result.success) {
+          console.warn(`Failed to delete R2 object for photo ${photo.id}:`, result.error)
         }
       }
 
       // If avatar field stores an R2 key, attempt to delete it as well
       if (user.avatar) {
-        try {
-          await deleteFile(user.avatar)
-        } catch (e) {
-          console.warn(`Failed to delete avatar R2 object:`, e)
+        const avatarDeletion = await deleteFile(user.avatar)
+        if (!avatarDeletion.success) {
+          console.warn(`Failed to delete avatar R2 object:`, avatarDeletion.error)
         }
       }
 
-      // Delete the user; Prisma schema cascades will remove related rows
-      await prisma.user.delete({ where: { id: user.id } })
+      // Soft-delete user and cascade related records
+      await UserService.deleteUser(user.id)
+
+      // Clear recommendation caches for this user
+      invalidateUserCache(user.id)
 
       return { success: true, message: 'Account deleted successfully' }
     } catch (error: any) {

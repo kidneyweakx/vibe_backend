@@ -25,7 +25,7 @@ export class UserService {
   static async upsertUser(data: CreateUserData) {
     return upsertUser(data)
   }
-  static async getUserById(id: number | string) {
+  static async getUserById(id: string) {
     return getUserById(id)
   }
   static async getUserByEmail(email: string) {
@@ -40,10 +40,10 @@ export class UserService {
   static async createGuestUser(deviceId: string) {
     return createGuestUser(deviceId)
   }
-  static async updateUser(id: number | string, data: UpdateUserData) {
+  static async updateUser(id: string, data: UpdateUserData) {
     return svcUpdateUser(id, data)
   }
-  static async deleteUser(id: number | string) {
+  static async deleteUser(id: string) {
     return svcDeleteUser(id)
   }
 }

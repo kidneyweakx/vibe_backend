@@ -34,16 +34,7 @@ export const profileCreateRoute = new Elysia()
 
       const token = await AuthService.generateJWTAsync(user.id)
 
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          name: user.name || '',
-          email: user.email,
-          profileImageURL: user.avatar ?? undefined
-        },
-        token
-      }
+      return AuthService.formatAuthResponse(user, token)
     } catch (error: any) {
       set.status = 400
       return { success: false, error: error.message }

@@ -118,8 +118,8 @@ export const appleVerifyRoute = new Elysia()
       // Handle database connection errors
       if (error instanceof Error && (
         error.message.includes('Database configuration error') ||
-        error.message.includes('TURSO_DATABASE_URL') ||
-        error.message.includes('TURSO_AUTH_TOKEN') ||
+        error.message.includes('env.DB') ||
+        error.message.includes('DATABASE_URL') ||
         error.message.includes('Prisma') ||
         error.message.includes('connection')
       )) {
@@ -130,7 +130,7 @@ export const appleVerifyRoute = new Elysia()
         });
         
         set.status = 503;
-        return { success: false, error: 'Service temporarily unavailable' };
+        return { success: false, error: 'Service temporarily unavailable: check D1 binding or DATABASE_URL' };
       }
       
       // Handle other errors

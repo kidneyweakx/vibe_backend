@@ -19,35 +19,58 @@ export async function confirmPhotoUpload(params: {
       await client.send(head)
     } catch (e) {}
 
-    let numericUserId: number
-    if (typeof userId === 'string' && userId.startsWith('guest_')) {
-      let guest = await prisma.user.findFirst({ where: { providerId: userId } })
-      if (!guest) {
-        guest = await prisma.user.create({
-          data: {
-            email: `${userId}@guest.local`,
-            name: 'Guest User',
-            provider: 'guest',
-            providerId: userId,
-            isGuest: true
-          }
-        })
-      }
-      numericUserId = guest.id
-    } else {
-      numericUserId = typeof userId === 'number' ? userId : Number(userId)
-      if (!Number.isFinite(numericUserId)) {
-        throw new Error(`User with ID ${userId} not found`)
+    let resolvedUserId: string
+
+    if (typeof userId === 'string') {
+      const trimmed = userId.trim()
+      if (!trimmed) {
+        throw new Error('User ID is required')
       }
 
-      const user = await prisma.user.findUnique({ where: { id: numericUserId } })
-      if (!user) throw new Error(`User with ID ${userId} not found`)
+      if (trimmed.startsWith('guest_')) {
+        let guest = await prisma.user.findFirst({ where: { providerId: trimmed } })
+        if (!guest) {
+          guest = await prisma.user.create({
+            data: {
+              email: `${trimmed}@guest.local`,
+              name: 'Guest User',
+              provider: 'guest',
+              providerId: trimmed,
+              isGuest: true
+            }
+          })
+        }
+        resolvedUserId = guest.id
+      } else {
+        const user = await prisma.user.findUnique({ where: { id: trimmed } })
+        if (!user) {
+          const fallbackGuest = await prisma.user.findFirst({ where: { providerId: trimmed } })
+          if (!fallbackGuest) {
+            throw new Error(`User with ID ${userId} not found`)
+          }
+          resolvedUserId = fallbackGuest.id
+        } else {
+          resolvedUserId = user.id
+        }
+      }
+    } else {
+      const candidate = String(userId)
+      const user = await prisma.user.findUnique({ where: { id: candidate } })
+      if (!user) {
+        const fallbackGuest = await prisma.user.findFirst({ where: { providerId: candidate } })
+        if (!fallbackGuest) {
+          throw new Error(`User with ID ${userId} not found`)
+        }
+        resolvedUserId = fallbackGuest.id
+      } else {
+        resolvedUserId = user.id
+      }
     }
 
     const publicUrl = getPublicObjectUrl(key)
     const photo = await prisma.photo.create({
       data: {
-        userId: numericUserId,
+        userId: resolvedUserId,
         key,
         url: publicUrl,
         format,
