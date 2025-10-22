@@ -6,8 +6,9 @@ import { isLocal } from '../utils/runtime'
  * Admin middleware - validates admin access
  *
  * Two-tier security:
- * 1. Local environment: Full access (read + write operations)
- * 2. Cloudflare environment: Requires ADMIN_API_KEY (read-only operations)
+ * 1. All environments require ADMIN_API_KEY via x-admin-key header
+ * 2. Local environment: valid key allows read + write
+ * 3. Cloudflare environment: valid key allows read-only
  */
 export const adminMiddleware = new Elysia()
   .derive(({ headers, set }: any) => {
@@ -15,16 +16,7 @@ export const adminMiddleware = new Elysia()
     const expectedKey = getEnvVar('ADMIN_API_KEY')
     const local = isLocal()
 
-    // Local environment: full access without key
-    if (local) {
-      return {
-        isAdmin: true,
-        isLocal: true,
-        canWrite: true
-      }
-    }
-
-    // Cloudflare environment: requires admin key for read-only access
+    // Require admin key in all environments
     if (!expectedKey || !adminKey || adminKey !== expectedKey) {
       set.status = 403
       throw new Error('Admin access forbidden')
@@ -32,8 +24,8 @@ export const adminMiddleware = new Elysia()
 
     return {
       isAdmin: true,
-      isLocal: false,
-      canWrite: false // Cloudflare can only read
+      isLocal: local,
+      canWrite: local // Only local environment can write
     }
   })
 
