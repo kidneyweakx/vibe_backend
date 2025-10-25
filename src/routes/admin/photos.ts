@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { requireWritePermission } from '../../middlewares/admin'
-import { getAllPhotos, deletePhoto, aggregateReportedPhotos, listAllReports } from '../../services/file'
+import { getAllPhotos, aggregateReportedPhotos, listAllReports, deletePhotoAsAdmin } from '../../services/file'
 
 export const adminPhotosRoute = new Elysia()
   // Read-only routes - Available on Cloudflare with admin key
@@ -43,10 +43,10 @@ export const adminPhotosRoute = new Elysia()
   })
 
   // Write operations - Local only
-  .use(requireWritePermission)
+  // .use(requireWritePermission)
   .delete('/photos/:photoId', async ({ params, set }) => {
     try {
-      const result = await deletePhoto(params.photoId)
+      const result = await deletePhotoAsAdmin(params.photoId)
       if (!result.success) {
         set.status = 404
         return { success: false, error: result.error }

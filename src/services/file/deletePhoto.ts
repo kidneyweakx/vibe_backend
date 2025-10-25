@@ -20,4 +20,23 @@ export async function deletePhoto(photoId: string, userId: string): Promise<{ su
   }
 }
 
+// Admin override: delete any photo by id without ownership check
+export async function deletePhotoAsAdmin(photoId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const photo = await getPrisma().photo.findUnique({ where: { id: photoId } })
+    if (!photo) {
+      return { success: false, error: 'Photo not found' }
+    }
+    const deleteResult = await deleteR2File(photo.key)
+    if (!deleteResult.success) {
+      return deleteResult
+    }
+    await getPrisma().photo.delete({ where: { id: photoId } })
+    return { success: true }
+  } catch (error: any) {
+    logError('Admin delete photo', photoId, error)
+    return { success: false, error: handleR2Error(error) }
+  }
+}
+
 
