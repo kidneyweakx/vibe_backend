@@ -3,6 +3,7 @@ import { uploadToR2 } from '../file/uploadToR2'
 import { updateUser } from './index'
 import { getPresignedGetUrl } from '../r2/presign'
 import type { R2UploadResult } from '../interfaces/file'
+import { clearProfileBundleCache } from '../info/profileAggregator'
 
 export async function uploadProfilePicture(userId: string, imageFile: File): Promise<{
   success: boolean
@@ -84,6 +85,9 @@ export async function uploadProfilePicture(userId: string, imageFile: File): Pro
     } catch (error: any) {
       return { success: false, error: 'Failed to update user profile' }
     }
+
+    // Invalidate cached profile info so new avatar doesn't appear in photo lists
+    try { clearProfileBundleCache() } catch {}
 
     return {
       success: true,

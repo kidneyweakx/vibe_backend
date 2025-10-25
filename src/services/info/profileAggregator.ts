@@ -101,7 +101,11 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
   const latestPhotoPromise = prisma.photo.findFirst({
     where: {
       userId: userId,
-      isProfilePicture: false
+      isProfilePicture: false,
+      status: 'active',
+      NOT: {
+        key: { startsWith: 'profile-pictures/' }
+      }
     },
     orderBy: { uploadedAt: 'desc' },
     include: {
@@ -115,7 +119,11 @@ export async function fetchProfileBundle(userId: string, options: BundleOptions 
     ? prisma.photo.findMany({
         where: {
           userId: userId,
-          isProfilePicture: false
+          isProfilePicture: false,
+          status: 'active',
+          NOT: {
+            key: { startsWith: 'profile-pictures/' }
+          }
         },
         include: {
           photoTags: {

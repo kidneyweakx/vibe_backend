@@ -4,7 +4,7 @@ import { fetchProfileBundle } from './profileAggregator'
 
 export interface ProfileInfoResponse {
   user: {
-    id: number
+    id: string
     name: string | null
     avatar: string | null
     gender: string | null

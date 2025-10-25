@@ -25,7 +25,7 @@ export interface PhotoListResponse {
 
 export interface PhotoInfo {
   id: string
-  userId: number
+  userId: string
   urls: PhotoURLs
   uploadedAt: Date
   tags?: Tag[]
